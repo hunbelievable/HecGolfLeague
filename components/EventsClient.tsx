@@ -142,13 +142,7 @@ export default function EventsClient({ events }: Props) {
                           }`}
                         >
                           <td className="px-4 py-2.5">
-                            {r.position === 1 ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-bold">
-                                1
-                              </span>
-                            ) : (
-                              <span className="text-gray-600 text-xs">{r.position}</span>
-                            )}
+                            <span className={`text-xs font-medium ${r.position === 1 ? "text-yellow-400 font-bold" : "text-gray-600"}`}>{r.position}</span>
                           </td>
                           <td className="px-3 py-2.5">
                             <Link

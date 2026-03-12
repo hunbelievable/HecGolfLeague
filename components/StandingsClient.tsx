@@ -103,13 +103,7 @@ export default function StandingsClient({ data }: Props) {
                 } hover:bg-gray-800`}
               >
                 <td className="px-4 py-3">
-                  {i === 0 ? (
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-bold">
-                      1
-                    </span>
-                  ) : (
-                    <span className="text-gray-600 text-xs font-medium">{i + 1}</span>
-                  )}
+                  <span className={`text-xs font-medium ${i === 0 ? "text-yellow-400 font-bold" : "text-gray-600"}`}>{i + 1}</span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">

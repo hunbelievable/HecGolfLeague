@@ -294,18 +294,12 @@ export default function PlayerClient({ player }: Props) {
                   </div>
                 </td>
                 <td className="px-3 py-3 text-center">
-                  {r.position === 1 ? (
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-400 text-xs font-bold">
-                      1
-                    </span>
-                  ) : (
-                    <span className="text-gray-500 text-xs">
-                      {r.position}
-                      <span className="text-gray-700">
-                        {r.position === 2 ? "nd" : r.position === 3 ? "rd" : "th"}
-                      </span>
-                    </span>
-                  )}
+                  <span className={`text-xs ${r.position === 1 ? "text-yellow-400 font-bold" : "text-gray-500"}`}>
+                    {r.position}
+                    {r.position !== 1 && (
+                      <span className="text-gray-700">{r.position === 2 ? "nd" : r.position === 3 ? "rd" : "th"}</span>
+                    )}
+                  </span>
                 </td>
                 <td className="px-3 py-3 text-center font-mono text-sm text-gray-200">{r.score}</td>
                 <td className="px-5 py-3 text-right text-gray-500 font-mono text-xs">
