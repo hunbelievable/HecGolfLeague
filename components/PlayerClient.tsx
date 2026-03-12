@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -60,6 +60,17 @@ export default function PlayerClient({ player }: Props) {
   const [reports, setReports] = useState<Record<number, string>>(
     Object.fromEntries(player.coachingReports.map(r => [r.tournamentId, r.report]))
   );
+  const [prizeWins, setPrizeWins] = useState<{ skins: number; ctp: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/weekly-prizes")
+      .then(r => r.json())
+      .then(({ leaderboard }: { leaderboard: { playerId: string; skins: number; ctp: number; net: number }[] }) => {
+        const entry = leaderboard.find(e => e.playerId === player.id);
+        setPrizeWins(entry ? { skins: entry.skins, ctp: entry.ctp } : { skins: 0, ctp: 0 });
+      })
+      .catch(() => setPrizeWins({ skins: 0, ctp: 0 }));
+  }, [player.id]);
 
   const grossResults = player.results.filter(r => r.type === "gross");
   const netResults = player.results.filter(r => r.type === "net");
@@ -138,6 +149,8 @@ export default function PlayerClient({ player }: Props) {
         {[
           { label: "Gross Wins", value: grossWins, highlight: grossWins > 0 },
           { label: "Net Wins", value: netWins, highlight: netWins > 0 },
+          { label: "🎯 CTP Wins", value: prizeWins?.ctp ?? "—", highlight: (prizeWins?.ctp ?? 0) > 0 },
+          { label: "💰 Skins Wins", value: prizeWins?.skins ?? "—", highlight: (prizeWins?.skins ?? 0) > 0 },
           { label: "Gross Top 3", value: grossTop3 },
           { label: "Avg Score", value: `+${avgGross}` },
           { label: "Best Round", value: bestGross, green: true },
