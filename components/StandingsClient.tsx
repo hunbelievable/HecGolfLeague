@@ -84,9 +84,6 @@ export default function StandingsClient({ data }: Props) {
                       style={{ backgroundColor: PLAYER_COLORS[s.playerId] ?? "#888" }}
                     />
                     <span className="font-medium text-white">{s.playerId}</span>
-                    {s.playerId === "holiday402" && (
-                      <span className="text-xs text-gray-500">(you)</span>
-                    )}
                   </div>
                 </td>
                 {tab === "net" && (
