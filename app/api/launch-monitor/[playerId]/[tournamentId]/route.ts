@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { LaunchMonitorShot } from "@prisma/client";
 
 // GSPro uses W3/H3/I6 notation — map to display name and sort order
 const CLUB_DISPLAY: Record<string, string> = {
@@ -58,7 +59,7 @@ export async function GET(
   }
 
   // Group by club
-  const clubMap = new Map<string, typeof shots>();
+  const clubMap = new Map<string, LaunchMonitorShot[]>();
   for (const s of shots) {
     const key = s.clubName || "UNK";
     if (!clubMap.has(key)) clubMap.set(key, []);
@@ -66,7 +67,7 @@ export async function GET(
   }
 
   const byClub = [...clubMap.entries()]
-    .map(([club, clubShots]: [string, typeof shots]) => ({
+    .map(([club, clubShots]) => ({
       club: CLUB_DISPLAY[club.toUpperCase()] ?? club,
       rawClub: club,
       count: clubShots.length,
