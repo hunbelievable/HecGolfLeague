@@ -78,68 +78,89 @@ export default function HeadToHeadClient({ tournaments, players }: Props) {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Head-to-Head</h1>
+      {/* Page header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Head to Head</h1>
+        <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
+      </div>
 
-      {/* Player selectors */}
-      <div className="flex items-center gap-4 mb-6 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color1 }} />
-          <select
-            value={player1}
-            onChange={e => setPlayer1(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-gray-500"
-          >
-            {PLAYER_IDS.filter(id => id !== player2).map(id => (
-              <option key={id} value={id}>{id}</option>
-            ))}
-          </select>
-        </div>
-
-        <span className="text-gray-500 font-bold text-lg">vs</span>
-
-        <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color2 }} />
-          <select
-            value={player2}
-            onChange={e => setPlayer2(e.target.value)}
-            className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-gray-500"
-          >
-            {PLAYER_IDS.filter(id => id !== player1).map(id => (
-              <option key={id} value={id}>{id}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="ml-2 flex gap-2">
-          {(["gross", "net"] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                tab === t ? "bg-green-600 text-white" : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
-              }`}
+      {/* Controls row */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Player 1 selector */}
+          <div className="flex items-center gap-2 flex-1 min-w-36">
+            <div
+              className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/20"
+              style={{ backgroundColor: color1 }}
+            />
+            <select
+              value={player1}
+              onChange={e => setPlayer1(e.target.value)}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-600/60 transition-colors"
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
+              {PLAYER_IDS.filter(id => id !== player2).map(id => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </select>
+          </div>
+
+          <span className="text-gray-600 font-bold text-sm px-1">vs</span>
+
+          {/* Player 2 selector */}
+          <div className="flex items-center gap-2 flex-1 min-w-36">
+            <div
+              className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/20"
+              style={{ backgroundColor: color2 }}
+            />
+            <select
+              value={player2}
+              onChange={e => setPlayer2(e.target.value)}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-600/60 transition-colors"
+            >
+              {PLAYER_IDS.filter(id => id !== player1).map(id => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Gross / Net toggle */}
+          <div className="flex gap-1.5">
+            {(["gross", "net"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3.5 py-2 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 ${
+                  tab === t
+                    ? "bg-green-600 text-white shadow-lg shadow-green-900/40"
+                    : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Record summary */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-900 rounded-lg p-5 border border-gray-800 text-center">
-          <div className="text-3xl font-bold" style={{ color: color1 }}>{wins}</div>
-          <div className="text-xs text-gray-500 mt-1">
+      {/* Record summary cards */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="text-3xl font-bold tabular-nums" style={{ color: color1 }}>
+            {wins}
+          </div>
+          <div className="text-xs text-gray-600 mt-1.5 uppercase tracking-wide font-medium truncate px-1">
             {player1} wins
           </div>
         </div>
-        <div className="bg-gray-900 rounded-lg p-5 border border-gray-800 text-center">
-          <div className="text-3xl font-bold text-gray-400">{ties}</div>
-          <div className="text-xs text-gray-500 mt-1">Ties</div>
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="text-3xl font-bold text-gray-500 tabular-nums">{ties}</div>
+          <div className="text-xs text-gray-600 mt-1.5 uppercase tracking-wide font-medium">Ties</div>
         </div>
-        <div className="bg-gray-900 rounded-lg p-5 border border-gray-800 text-center">
-          <div className="text-3xl font-bold" style={{ color: color2 }}>{losses}</div>
-          <div className="text-xs text-gray-500 mt-1">
+        <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 text-center">
+          <div className="text-3xl font-bold tabular-nums" style={{ color: color2 }}>
+            {losses}
+          </div>
+          <div className="text-xs text-gray-600 mt-1.5 uppercase tracking-wide font-medium truncate px-1">
             {player2} wins
           </div>
         </div>
@@ -147,70 +168,114 @@ export default function HeadToHeadClient({ tournaments, players }: Props) {
 
       {/* Win bar */}
       {matchups.length > 0 && (
-        <div className="mb-8">
-          <div className="h-4 rounded-full overflow-hidden flex bg-gray-800">
+        <div className="mb-6">
+          <div className="h-3 rounded-full overflow-hidden flex bg-gray-800">
             <div
-              className="h-full transition-all"
+              className="h-full transition-all duration-500"
               style={{ width: `${(wins / matchups.length) * 100}%`, backgroundColor: color1 }}
             />
             <div
-              className="h-full transition-all bg-gray-600"
+              className="h-full transition-all duration-500 bg-gray-600"
               style={{ width: `${(ties / matchups.length) * 100}%` }}
             />
             <div
-              className="h-full transition-all"
+              className="h-full transition-all duration-500"
               style={{ width: `${(losses / matchups.length) * 100}%`, backgroundColor: color2 }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
-            <span>{((wins / matchups.length) * 100).toFixed(0)}%</span>
-            <span>{((losses / matchups.length) * 100).toFixed(0)}%</span>
+          <div className="flex justify-between text-xs text-gray-600 mt-1.5 font-mono">
+            <span style={{ color: color1 }}>{((wins / matchups.length) * 100).toFixed(0)}%</span>
+            <span style={{ color: color2 }}>{((losses / matchups.length) * 100).toFixed(0)}%</span>
           </div>
         </div>
       )}
 
       {/* Week-by-week breakdown */}
-      <div className="bg-gray-900 rounded-lg border border-gray-800">
-        <div className="px-5 py-3 border-b border-gray-800">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Week-by-Week</h2>
+      <div className="rounded-xl border border-gray-800 overflow-hidden">
+        <div className="px-5 py-3.5 bg-gray-900 border-b border-gray-800">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+            Week by Week
+          </h2>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-gray-500 text-xs uppercase tracking-wide border-b border-gray-800">
-              <th className="text-left px-5 py-2">Event</th>
-              <th className="text-center px-3 py-2" style={{ color: color1 }}>{player1}</th>
-              <th className="text-center px-3 py-2 text-gray-500">Result</th>
-              <th className="text-center px-3 py-2" style={{ color: color2 }}>{player2}</th>
+            <tr className="bg-gray-900/80 text-xs uppercase tracking-widest border-b border-gray-800">
+              <th className="text-left px-5 py-2.5 text-gray-500 font-semibold">Event</th>
+              <th className="text-center px-3 py-2.5 font-semibold" style={{ color: color1 }}>
+                {player1}
+              </th>
+              <th className="text-center px-3 py-2.5 text-gray-600 font-semibold">Result</th>
+              <th className="text-center px-3 py-2.5 font-semibold" style={{ color: color2 }}>
+                {player2}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {matchups.map(({ tournament, r1, r2, outcome }) => (
-              <tr key={tournament.id} className="border-b border-gray-800/40 last:border-0">
+            {matchups.map(({ tournament, r1, r2, outcome }, i) => (
+              <tr
+                key={tournament.id}
+                className={`border-b border-gray-800/50 last:border-0 transition-colors hover:bg-gray-800/40 ${
+                  i % 2 === 0 ? "bg-gray-900" : "bg-gray-950/50"
+                } ${outcome === "win" ? "border-l-2" : outcome === "loss" ? "border-r-2" : ""}`}
+                style={
+                  outcome === "win"
+                    ? { borderLeftColor: color1 }
+                    : outcome === "loss"
+                    ? { borderRightColor: color2 }
+                    : {}
+                }
+              >
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-gray-500 font-mono text-xs w-14">{tournament.week}</span>
-                    <span className="text-gray-300">{tournament.name}</span>
-                    {tournament.isMajor && <span className="text-xs text-yellow-400">★</span>}
+                    <span className="text-gray-600 font-mono text-xs w-12 shrink-0">
+                      {tournament.week}
+                    </span>
+                    <span className="text-gray-300 text-sm">{tournament.name}</span>
+                    {tournament.isMajor && (
+                      <span className="text-xs text-yellow-400">★</span>
+                    )}
                   </div>
                 </td>
-                <td className="px-3 py-3 text-center font-mono" style={{ color: outcome === "win" ? color1 : "#9ca3af" }}>
-                  {r1.score}
-                  {outcome === "win" && <span className="ml-1 text-xs">✓</span>}
+                <td className="px-3 py-3 text-center">
+                  <span
+                    className={`font-mono text-sm font-semibold ${
+                      outcome === "win" ? "opacity-100" : "opacity-40"
+                    }`}
+                    style={{ color: color1 }}
+                  >
+                    {r1.score}
+                  </span>
                 </td>
                 <td className="px-3 py-3 text-center">
                   {outcome === "win" && (
-                    <span className="text-xs font-bold" style={{ color: color1 }}>W</span>
+                    <span
+                      className="text-xs font-bold px-1.5 py-0.5 rounded"
+                      style={{ color: color1, backgroundColor: `${color1}20` }}
+                    >
+                      W
+                    </span>
                   )}
                   {outcome === "loss" && (
-                    <span className="text-xs font-bold" style={{ color: color2 }}>L</span>
+                    <span
+                      className="text-xs font-bold px-1.5 py-0.5 rounded"
+                      style={{ color: color2, backgroundColor: `${color2}20` }}
+                    >
+                      L
+                    </span>
                   )}
                   {outcome === "tie" && (
-                    <span className="text-xs text-gray-500">T</span>
+                    <span className="text-xs text-gray-600 font-medium">T</span>
                   )}
                 </td>
-                <td className="px-3 py-3 text-center font-mono" style={{ color: outcome === "loss" ? color2 : "#9ca3af" }}>
-                  {r2.score}
-                  {outcome === "loss" && <span className="ml-1 text-xs">✓</span>}
+                <td className="px-3 py-3 text-center">
+                  <span
+                    className={`font-mono text-sm font-semibold ${
+                      outcome === "loss" ? "opacity-100" : "opacity-40"
+                    }`}
+                    style={{ color: color2 }}
+                  >
+                    {r2.score}
+                  </span>
                 </td>
               </tr>
             ))}
