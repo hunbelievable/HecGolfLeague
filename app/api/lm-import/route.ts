@@ -36,12 +36,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No records provided" }, { status: 400 });
     }
 
-    const result = await prisma.launchMonitorShot.createMany({
-      data: records,
-      skipDuplicates: true,
-    });
+    // Prisma 7 + libsql doesn't support skipDuplicates — upsert individually
+    let inserted = 0;
+    for (const rec of records) {
+      await prisma.launchMonitorShot.upsert({
+        where: { shotKey: rec.shotKey },
+        create: rec,
+        update: rec,
+      });
+      inserted++;
+    }
 
-    return NextResponse.json({ inserted: result.count, received: records.length });
+    return NextResponse.json({ inserted, received: records.length });
   } catch (err) {
     console.error("lm-import error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
