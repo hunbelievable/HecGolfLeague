@@ -245,7 +245,8 @@ Keep it under 500 words.${!hasShotData && !hasLMData ? "\n\nNote: No shot data o
     return NextResponse.json({ report, cached: false, hasShotData, hasLMData });
   } catch (err) {
     console.error("Anthropic error:", err);
-    return NextResponse.json({ error: "Failed to generate report" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
