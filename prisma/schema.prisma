@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Tournament {
+  id        Int      @id
+  name      String
+  week      String
+  date      String
+  isMajor   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  results            Result[]
+  launchMonitorShots LaunchMonitorShot[]
+}
+
+model Player {
+  id       String @id
+  handicap Int
+
+  results            Result[]
+  coachingReports    CoachingReport[]
+  shotData           ShotData[]
+  launchMonitorShots LaunchMonitorShot[]
+}
+
+model Result {
+  id           Int    @id @default(autoincrement())
+  tournamentId Int
+  playerId     String
+  type         String // "gross" or "net"
+  position     Int
+  score        String
+  points       Float
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  player     Player     @relation(fields: [playerId], references: [id])
+
+  @@unique([tournamentId, playerId, type])
+}
+
+model ShotData {
+  id           Int      @id @default(autoincrement())
+  playerId     String
+  tournamentId Int
+  holeNumber   Int
+  par          Int
+  shots        String   // JSON array of shot strings, e.g. ["201 yds to fairway, 183 yds to hole", ...]
+  shotsCount   Int
+  createdAt    DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([tournamentId, playerId, holeNumber])
+}
+
+model LaunchMonitorShot {
+  id            Int     @id @default(autoincrement())
+  tournamentId  Int
+  playerId      String
+  roundKey      String
+  shotKey       String  @unique
+  hole          Int
+  holeShot      Int
+  globalShotNum Int
+  clubName      String
+  shotResult    String?
+  // PlayerShots fields
+  ballSpeed     Float?
+  carryDist     Float?
+  totalDist     Float?
+  distToPin     Float?
+  peakHeight    Float?
+  offline       Float?
+  // PlayerShotMeasures fields (launch monitor)
+  clubSpeed     Float?
+  backSpin      Float?
+  spinAxis      Float?
+  clubAoA       Float?
+  clubPath      Float?
+  faceToPath    Float?
+  faceToTarget  Float?
+  descAngle     Float?
+  hla           Float?
+  vla           Float?
+
+  createdAt DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  player     Player     @relation(fields: [playerId], references: [id])
+
+  @@index([tournamentId, playerId])
+}
+
+model CoachingReport {
+  id           Int      @id @default(autoincrement())
+  playerId     String
+  tournamentId Int
+  report       String
+  shotDataJson String?
+  createdAt    DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id])
+
+  @@unique([playerId, tournamentId])
+}

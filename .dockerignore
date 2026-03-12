@@ -1,0 +1,28 @@
+# Dependencies (reinstalled in image)
+node_modules/
+
+# Next.js build output (rebuilt in image)
+.next/
+/out/
+/build
+
+# Git & editor
+.git/
+.gitignore
+.DS_Store
+
+# Environment (injected at runtime via docker-compose)
+.env*
+
+# Database (mounted as a volume — never bake secrets into the image)
+*.db
+*.db-shm
+*.db-wal
+/data/
+
+# Scripts not needed in production
+scripts/
+.claude/
+
+# Docs
+*.md

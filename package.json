@@ -5,19 +5,35 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "seed": "npx ts-node --project tsconfig.seed.json prisma/seed.ts",
+    "scrape": "npx ts-node --project tsconfig.seed.json scripts/scraper.ts",
+    "scrape-shots": "npx ts-node --project tsconfig.seed.json scripts/scrape-shots.ts"
+  },
+  "prisma": {
+    "seed": "npx ts-node --project tsconfig.seed.json prisma/seed.ts"
   },
   "dependencies": {
-    "next": "16.1.6",
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@libsql/client": "^0.17.0",
+    "@prisma/adapter-libsql": "^7.4.2",
+    "@prisma/client": "^7.4.2",
+    "cheerio": "^1.2.0",
+    "next": "^16.1.6",
+    "playwright": "^1.58.2",
+    "prisma": "^7.4.2",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "recharts": "^3.8.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/cheerio": "^0.22.35",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
