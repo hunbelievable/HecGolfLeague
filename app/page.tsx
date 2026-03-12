@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import StandingsClient from "@/components/StandingsClient";
 import prisma from "@/lib/prisma";
 import type { StandingsData, PointsHistory, PlayerStanding } from "@/lib/types";

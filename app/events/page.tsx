@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import EventsClient from "@/components/EventsClient";
 import prisma from "@/lib/prisma";
 

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import HeadToHeadClient from "@/components/HeadToHeadClient";
 import prisma from "@/lib/prisma";
 
