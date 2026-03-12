@@ -138,9 +138,6 @@ export default function PlayerClient({ player }: Props) {
           <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
           <h1 className="text-2xl font-bold">{player.id}</h1>
           <span className="text-gray-500 text-sm">HCP {player.handicap}</span>
-          {player.id === "holiday402" && (
-            <span className="text-xs px-2 py-0.5 bg-green-900/40 text-green-400 rounded border border-green-800">you</span>
-          )}
         </div>
       </div>
 
