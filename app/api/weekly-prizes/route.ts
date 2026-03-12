@@ -4,19 +4,28 @@ import prisma from "@/lib/prisma";
 export async function GET() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { date: "asc" },
-    include: { weeklyPrize: true },
   });
 
-  const weeks = tournaments.map((t) => ({
-    tournamentId: t.id,
-    week: t.week,
-    name: t.name,
-    date: t.date,
-    isMajor: t.isMajor,
-    skinsWinner: (t.weeklyPrize as any)?.skinsWinner ?? null,
-    ctpWinner: (t.weeklyPrize as any)?.ctpWinner ?? null,
-    netWinner: (t.weeklyPrize as any)?.netWinner ?? null,
-  }));
+  // Raw SQL so this works even if Prisma client was generated before WeeklyPrize was added
+  const prizes = await prisma.$queryRaw<
+    { tournamentId: number; skinsWinner: string | null; ctpWinner: string | null; netWinner: string | null }[]
+  >`SELECT tournamentId, skinsWinner, ctpWinner, netWinner FROM WeeklyPrize`;
+
+  const prizeMap = new Map(prizes.map((p) => [p.tournamentId, p]));
+
+  const weeks = tournaments.map((t) => {
+    const p = prizeMap.get(t.id);
+    return {
+      tournamentId: t.id,
+      week: t.week,
+      name: t.name,
+      date: t.date,
+      isMajor: t.isMajor,
+      skinsWinner: p?.skinsWinner ?? null,
+      ctpWinner: p?.ctpWinner ?? null,
+      netWinner: p?.netWinner ?? null,
+    };
+  });
 
   // Build totals per player
   const totals: Record<string, { skins: number; ctp: number; net: number }> = {};

@@ -66,7 +66,7 @@ export async function GET(
   }
 
   const byClub = [...clubMap.entries()]
-    .map(([club, clubShots]) => ({
+    .map(([club, clubShots]: [string, typeof shots]) => ({
       club: CLUB_DISPLAY[club.toUpperCase()] ?? club,
       rawClub: club,
       count: clubShots.length,
