@@ -17,6 +17,17 @@ model Tournament {
 
   results            Result[]
   launchMonitorShots LaunchMonitorShot[]
+  weeklyPrize        WeeklyPrize?
+}
+
+model WeeklyPrize {
+  id           Int     @id @default(autoincrement())
+  tournamentId Int     @unique
+  skinsWinner  String? // player ID or null if NA
+  ctpWinner    String? // player ID or null if NA
+  netWinner    String? // player ID or null if NA
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
 }
 
 model Player {

@@ -15,6 +15,20 @@ const PLAYERS = [
   { id: "TLindell", handicap: 11 },
 ];
 
+// Weekly prizes: [tournamentId, skinsWinner | null, ctpWinner | null, netWinner | null]
+const WEEKLY_PRIZES: [number, string | null, string | null, string | null][] = [
+  [40579, null,             null,          "BDizzle"],      // W1 — Skins/CTP NA
+  [43157, null,             null,          "NickP"],        // W2 — Skins/CTP NA
+  [44078, "holiday402",    "TLindell",    "BDizzle"],       // W3
+  [45169, "BDizzle",       "NickP",       "TLindell"],      // W4
+  [45853, "holiday402",    "holiday402",  "NickP"],         // W5
+  [47001, "holiday402",    "holiday402",  "TLindell"],      // W6
+  [47836, "NickP",         "NickP",       "TLindell"],      // W7
+  [48674, "TLindell",      "holiday402",  "TLindell"],      // W8
+  [49707, "BDizzle",       "TLindell",    "BDizzle"],       // W9
+  [50643, "BozClubBreaker","BDizzle",     "BDizzle"],       // W10
+];
+
 const TOURNAMENTS = [
   { id: 40579, name: "Cypress Point Club", week: "Week 1", date: "2026-01-10", isMajor: false },
   { id: 43157, name: "Pine Valley (AutoPutt)", week: "Week 2", date: "2026-01-17", isMajor: false },
@@ -245,6 +259,16 @@ async function main() {
   }
 
   console.log(`Seeded ${resultCount} results`);
+
+  // Upsert weekly prizes
+  for (const [tournamentId, skinsWinner, ctpWinner, netWinner] of WEEKLY_PRIZES) {
+    await (prisma as any).weeklyPrize.upsert({
+      where: { tournamentId },
+      update: { skinsWinner, ctpWinner, netWinner },
+      create: { tournamentId, skinsWinner, ctpWinner, netWinner },
+    });
+  }
+  console.log(`Seeded ${WEEKLY_PRIZES.length} weekly prizes`);
   console.log("Done!");
 }
 
