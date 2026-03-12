@@ -22,9 +22,11 @@ interface LMShot {
 }
 
 interface CombinedShot {
-  shotIndex:   number;
-  description: string;
-  lm:          LMShot | null;
+  shotIndex:        number;
+  description:      string;
+  lm:               LMShot | null;
+  confidence:       "high" | "medium" | "low" | null;
+  confidenceReason: string | null;
 }
 
 interface HoleDetail {
@@ -219,11 +221,29 @@ function HoleRow({
                 <span className="text-gray-600 font-mono w-4 flex-shrink-0 pt-0.5">{shot.shotIndex}</span>
 
                 <div className="flex-1 min-w-0 space-y-1">
-                  {/* Line 1: club + SGT description */}
+                  {/* Line 1: club + confidence indicator + SGT description */}
                   <div className="flex items-center gap-2 flex-wrap">
                     {showLM && lm && (
-                      <span className="font-mono font-bold text-gray-100 w-7 flex-shrink-0 text-xs">
-                        {lm.clubName}
+                      <span className="flex items-center gap-0.5 flex-shrink-0">
+                        <span
+                          className={`font-mono font-bold text-xs w-7 ${
+                            shot.confidence === "low" ? "text-red-400" : "text-gray-100"
+                          }`}
+                        >
+                          {lm.clubName}
+                        </span>
+                        {shot.confidence === "low" && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 cursor-help"
+                            title={shot.confidenceReason ?? "Club likely mis-tagged in GSPro"}
+                          />
+                        )}
+                        {shot.confidence === "medium" && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-yellow-400 opacity-70 flex-shrink-0 cursor-help"
+                            title={shot.confidenceReason ?? "Club uncertain — possible layup or punch"}
+                          />
+                        )}
                       </span>
                     )}
 
@@ -458,8 +478,17 @@ export default function CombinedRoundView({ playerId, tournamentId }: Props) {
             </span>
             <span className="text-gray-700">(par {totalPar})</span>
             {hasLM && (
-              <span className="text-gray-700 ml-auto">
-                Expand a hole · SGT lie data + GSPro launch monitor per shot
+              <span className="flex items-center gap-2.5 ml-auto text-gray-600">
+                <span>Club confidence:</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 opacity-70" />
+                  <span>uncertain</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  <span>mis-tagged</span>
+                </span>
+                <span className="text-gray-700">(hover for detail)</span>
               </span>
             )}
           </div>
