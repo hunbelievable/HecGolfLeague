@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 export async function GET() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { date: "asc" },
+    include: { results: { where: { type: "net", position: 1 } } },
   });
 
   // Raw SQL so this works even if Prisma client was generated before WeeklyPrize was added
@@ -15,6 +16,8 @@ export async function GET() {
 
   const weeks = tournaments.map((t) => {
     const p = prizeMap.get(t.id);
+    // Fall back to position-1 net result if no prize record set
+    const derivedNet = t.results[0]?.playerId ?? null;
     return {
       tournamentId: t.id,
       week: t.week,
@@ -23,7 +26,7 @@ export async function GET() {
       isMajor: t.isMajor,
       skinsWinner: p?.skinsWinner ?? null,
       ctpWinner: p?.ctpWinner ?? null,
-      netWinner: p?.netWinner ?? null,
+      netWinner: p?.netWinner ?? derivedNet,
     };
   });
 

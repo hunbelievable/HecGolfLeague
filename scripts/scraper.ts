@@ -25,7 +25,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 const TOUR_ID = 2248;
 
-const TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643];
+const TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153];
 
 interface LeaderboardEntry {
   position: number;
@@ -38,34 +38,24 @@ async function parseLeaderboard(html: string): Promise<LeaderboardEntry[]> {
   const $ = cheerio.load(html);
   const entries: LeaderboardEntry[] = [];
 
-  // SGT API returns an HTML fragment table — rows with position, name, score, points
-  $("tr").each((_, row) => {
-    const cells = $(row).find("td");
-    if (cells.length < 4) return;
+  // SGT full-page leaderboard — rows are tr.finished-card with data-player-name
+  $("tr.finished-card").each((_, row) => {
+    const playerId = $(row).attr("data-player-name") || "";
+    if (!playerId) return;
 
-    const posText = $(cells[0]).text().trim();
+    const posText = $(row).find("td.finished-only-position").first().text().trim();
     const pos = parseInt(posText);
     if (isNaN(pos)) return;
 
-    const playerCell = $(cells[1]).text().trim();
-    const playerId = playerCell.split(/\s+/)[0]; // first token is username
+    const scoreText = $(row).find("td.total").first().text().trim();
+    const score = /^[+-]\d+$/.test(scoreText) || scoreText === "E" ? scoreText : "E";
 
-    // Points are in the last cell
-    const pointsText = $(cells[cells.length - 1]).text().trim().replace(/,/g, "");
+    // Points: first round cell (td[3])
+    const cells = $(row).find("td");
+    const pointsText = $(cells[3]).text().trim().replace(/,/g, "");
     const points = parseFloat(pointsText) || 0;
 
-    // Score — look for cells with +/- or "E"
-    let score = "E";
-    cells.each((_, cell) => {
-      const text = $(cell).text().trim();
-      if (/^[+-]\d+$/.test(text) || text === "E") {
-        score = text;
-      }
-    });
-
-    if (playerId && pos > 0) {
-      entries.push({ position: pos, playerId, score, points });
-    }
+    entries.push({ position: pos, playerId, score, points });
   });
 
   return entries;
@@ -93,9 +83,10 @@ async function main() {
     browser = await chromium.launch({ headless: true });
   }
 
+  const context = browser as Awaited<ReturnType<typeof chromium.launchPersistentContext>>;
   const page = useHeadless
     ? await (browser as Awaited<ReturnType<typeof chromium.launch>>).newPage()
-    : browser.pages()[0] || await (browser as Awaited<ReturnType<typeof chromium.launchPersistentContext>>).newPage();
+    : context.pages()[0] || await context.newPage();
 
   // Check if we're authenticated
   await page.goto(`${BASE_URL}/sgt-api/tour/${TOUR_ID}/gross`, { waitUntil: "networkidle" });

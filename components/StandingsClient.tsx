@@ -35,7 +35,7 @@ export default function StandingsClient({ data }: Props) {
       <div className="mb-6">
         <div className="flex items-end gap-3 mb-1">
           <h1 className="text-2xl font-bold text-white tracking-tight">Season Standings</h1>
-          <span className="text-sm text-gray-500 mb-0.5">10 Events</span>
+          <span className="text-sm text-gray-500 mb-0.5">{data.pointsHistory.length} Events</span>
         </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
       </div>

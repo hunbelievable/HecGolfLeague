@@ -43,13 +43,15 @@ interface MeasureRow {
 }
 
 async function fetchShotData(
-  page: { evaluate: (fn: (args: { baseUrl: string; playerGuid: string; roundBegin: string }) => Promise<{ shots: ShotRow[]; measures: MeasureRow[] }>, args: { baseUrl: string; playerGuid: string; roundBegin: string }) => Promise<{ shots: ShotRow[]; measures: MeasureRow[] }> },
+  page: { evaluate: (fn: (args: { baseUrl: string; selectedPlayer: string; playerGuid: string; roundKey: string }) => Promise<{ shots: ShotRow[]; measures: MeasureRow[] }>, args: { baseUrl: string; selectedPlayer: string; playerGuid: string; roundKey: string }) => Promise<{ shots: ShotRow[]; measures: MeasureRow[] }> },
+  selectedPlayer: string,
   playerGuid: string,
-  roundBegin: string
+  roundKey: string
 ): Promise<{ shots: ShotRow[]; measures: MeasureRow[] }> {
   return page.evaluate(
-    async ({ baseUrl, playerGuid, roundBegin }) => {
-      const url = `${baseUrl}/analytics/shots/LoadData?selectedPlayer=${playerGuid}&analyticsType=Shots&refreshCache=false&explicitFilter=true&roundBegins=${encodeURIComponent(roundBegin)}`;
+    async ({ baseUrl, selectedPlayer, playerGuid, roundKey }) => {
+      const roundKeyPlayerKey = encodeURIComponent(`${roundKey}|${playerGuid}`);
+      const url = `${baseUrl}/analytics/shots/LoadData?selectedPlayer=${encodeURIComponent(selectedPlayer)}&analyticsType=Shots&refreshCache=false&explicitFilter=true&roundKeyPlayerKey=${roundKeyPlayerKey}`;
       const resp = await fetch(url);
       const data = await resp.json();
 
@@ -76,7 +78,7 @@ async function fetchShotData(
 
       return { shots, measures };
     },
-    { baseUrl: GSPRO_BASE, playerGuid, roundBegin }
+    { baseUrl: GSPRO_BASE, selectedPlayer, playerGuid, roundKey }
   );
 }
 
@@ -127,6 +129,7 @@ async function main() {
   console.log(`Found GSPro tab: ${page.url()}`);
 
   const playerGuids = roundMap.players as Record<string, string>;
+  const playerKeys = (roundMap as Record<string, unknown>).playerKeys as Record<string, string> | undefined;
   const rounds = roundMap.rounds;
 
   let inserted = 0;
@@ -134,20 +137,23 @@ async function main() {
   let errors = 0;
 
   for (const entry of rounds) {
-    const { player, tournamentId, roundKey, roundBegin } = entry;
-    const playerGuid = playerGuids[player];
+    const { player, tournamentId, roundKey } = entry;
+    // selectedPlayer: email or GUID used in the API's selectedPlayer param
+    const selectedPlayer = playerGuids[player];
+    // playerKey: UUID used in roundKeyPlayerKey (may differ from selectedPlayer for some accounts)
+    const playerGuid = playerKeys?.[player] ?? selectedPlayer;
 
-    if (!playerGuid) {
-      console.warn(`  No GUID for player ${player}, skipping`);
+    if (!selectedPlayer) {
+      console.warn(`  No GUID/email for player ${player}, skipping`);
       continue;
     }
 
-    // Check if we already have data for this player+tournament
+    // Check if we already have data for this specific player+tournament+roundKey
     const existing = await prisma.launchMonitorShot.count({
-      where: { tournamentId, playerId: player },
+      where: { tournamentId, playerId: player, roundKey },
     });
     if (existing > 0) {
-      console.log(`  ${player} T${tournamentId}: already has ${existing} shots, skipping`);
+      console.log(`  ${player} T${tournamentId} round ${roundKey.slice(0, 8)}: already has ${existing} shots, skipping`);
       skipped++;
       continue;
     }
@@ -155,12 +161,11 @@ async function main() {
     console.log(`Fetching: ${player} @ tournament ${tournamentId} (round ${roundKey.slice(0, 8)}...)`);
 
     try {
-      const roundBeginTs = roundBegin + "T00:00:00Z";
       const { shots, measures } = await fetchShotData(
         page as Parameters<typeof fetchShotData>[0],
+        selectedPlayer,
         playerGuid,
-        // Find the actual roundBegin timestamp from the rounds list
-        rounds.find(r => r.roundKey === roundKey && r.player === player)?.roundBegin + "T00:00:00Z" || roundBeginTs
+        roundKey
       );
 
       if (shots.length === 0) {
@@ -201,7 +206,7 @@ async function main() {
         };
       });
 
-      await prisma.launchMonitorShot.createMany({ data, skipDuplicates: true });
+      await prisma.launchMonitorShot.createMany({ data });
       console.log(`  ✓ Inserted ${data.length} shots`);
       inserted += data.length;
     } catch (err) {
