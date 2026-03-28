@@ -28,7 +28,7 @@ const PLAYER_SGT_IDS: Record<string, number> = {
 };
 
 // 40579 = Week 1 (Cypress Point Club) — manually entered, no shot data on portal
-const TOURNAMENT_IDS = [43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153];
+const TOURNAMENT_IDS = [43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918];
 
 interface HoleData {
   holeNumber: number;

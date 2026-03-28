@@ -400,6 +400,42 @@
       "tournamentId": 52153,
       "roundKey": "b186a0ef-e297-4247-801f-afb11848532f",
       "roundBegin": "2026-03-17"
+    },
+    {
+      "player": "holiday402",
+      "tournamentId": 52918,
+      "roundKey": "b9be0541-8f09-4559-908f-21b4873fa265",
+      "roundBegin": "2026-03-24"
+    },
+    {
+      "player": "BDizzle",
+      "tournamentId": 52918,
+      "roundKey": "b9be0541-8f09-4559-908f-21b4873fa265",
+      "roundBegin": "2026-03-24"
+    },
+    {
+      "player": "NickP",
+      "tournamentId": 52918,
+      "roundKey": "b9be0541-8f09-4559-908f-21b4873fa265",
+      "roundBegin": "2026-03-24"
+    },
+    {
+      "player": "BozClubBreaker",
+      "tournamentId": 52918,
+      "roundKey": "b9be0541-8f09-4559-908f-21b4873fa265",
+      "roundBegin": "2026-03-24"
+    },
+    {
+      "player": "TLindell",
+      "tournamentId": 52918,
+      "roundKey": "b9be0541-8f09-4559-908f-21b4873fa265",
+      "roundBegin": "2026-03-24"
+    },
+    {
+      "player": "bsteffy",
+      "tournamentId": 52918,
+      "roundKey": "c9e76b1d-4541-45c0-a85d-609d4ce208d7",
+      "roundBegin": "2026-03-28"
     }
   ]
 }
