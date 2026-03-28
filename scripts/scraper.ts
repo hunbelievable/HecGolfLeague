@@ -25,7 +25,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 const TOUR_ID = 2248;
 
-const TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153];
+const TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918];
 
 interface LeaderboardEntry {
   position: number;
@@ -88,14 +88,32 @@ async function main() {
     ? await (browser as Awaited<ReturnType<typeof chromium.launch>>).newPage()
     : context.pages()[0] || await context.newPage();
 
-  // Check if we're authenticated
-  await page.goto(`${BASE_URL}/sgt-api/tour/${TOUR_ID}/gross`, { waitUntil: "networkidle" });
-  const content = await page.content();
+  // Check if we're authenticated by trying a leaderboard endpoint
+  console.log("Checking authentication...");
+  await page.goto(`${BASE_URL}/sgt-api/leaderboard/${TOURNAMENT_IDS[0]}/gross`, { waitUntil: "networkidle", timeout: 15000 });
+  let authContent = await page.content();
 
-  if (content.includes("login") || content.includes("sign in") || content.includes("unauthorized")) {
-    console.log(`\nNot authenticated. Please visit: ${BASE_URL}/login`);
-    console.log("Log in, then press Enter to continue...");
+  const isUnauthenticated = (html: string) =>
+    html.includes("found OB") || html.includes("login") || html.includes("sign in") || html.includes("unauthorized") || !html.includes("finished-card");
+
+  if (isUnauthenticated(authContent)) {
+    console.log("\nNot authenticated — navigating to login page...");
+    await page.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
+    console.log("Log in to SGT in the browser window, then press Enter here...");
     await new Promise(resolve => process.stdin.once("data", resolve));
+
+    // Re-verify auth after login
+    await page.goto(`${BASE_URL}/sgt-api/leaderboard/${TOURNAMENT_IDS[0]}/gross`, { waitUntil: "networkidle", timeout: 15000 });
+    authContent = await page.content();
+    if (isUnauthenticated(authContent)) {
+      console.error("Still not authenticated. Exiting.");
+      await browser.close();
+      await prisma.$disconnect();
+      process.exit(1);
+    }
+    console.log("Authenticated successfully!\n");
+  } else {
+    console.log("Already authenticated.\n");
   }
 
   let successCount = 0;
