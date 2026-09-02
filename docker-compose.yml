@@ -6,7 +6,7 @@ services:
     ports:
       - "3002:3000"        # Access at http://your-lab-ip:3002
     environment:
-      - DATABASE_URL=file:/app/data/hec.db
+      - DATABASE_URL=file:/app/data/dev.db
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
       - ./data:/app/data   # SQLite database persists here on the host
@@ -14,13 +14,13 @@ services:
 # ── Deploy workflow ───────────────────────────────────────────────────────────
 #
 #   After running scrapers locally, push dev.db to the server:
-#        cp dev.db data/hec.db          (on the server, in this directory)
-#        chown 1001:1001 data/hec.db
+#        cp dev.db data/dev.db          (on the server, in this directory)
+#        chown 1001:1001 data/dev.db
 #        docker compose restart hec-golf
 #
 #   First-time setup:
 #        mkdir -p data
-#        cp dev.db data/hec.db
-#        chown 1001:1001 data/hec.db
+#        cp dev.db data/dev.db
+#        chown 1001:1001 data/dev.db
 #        echo 'ANTHROPIC_API_KEY="sk-ant-..."' > .env
 #        docker compose up -d --build
