@@ -10,6 +10,7 @@
     "scrape": "npx ts-node --project tsconfig.seed.json scripts/scraper.ts",
     "scrape-shots": "npx ts-node --project tsconfig.seed.json scripts/scrape-shots.ts",
     "scrape-gspro": "npx tsx scripts/scrape-gspro.ts",
+    "scrape-prizes": "npx ts-node --project tsconfig.seed.json scripts/scrape-prizes.ts",
     "discover-rounds": "npx tsx scripts/discover-gspro-rounds.ts",
     "find-player": "npx tsx scripts/discover-gspro-rounds.ts --find-player"
   },
