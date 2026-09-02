@@ -108,7 +108,7 @@ async function discoverRounds(
   const endpoints = [
     `/analytics/shots/LoadData?selectedPlayer=${encodeURIComponent(playerGuid)}&analyticsType=Rounds&refreshCache=false`,
     `/analytics/rounds/LoadData?selectedPlayer=${encodeURIComponent(playerGuid)}&refreshCache=false`,
-    `/analytics/data?selectedPlayer=${encodeURIComponent(playerGuid)}&type=rounds`,
+    `/analytics/shots/LoadData?selectedPlayer=${encodeURIComponent(playerGuid)}&analyticsType=Rounds`,
   ];
 
   for (const endpoint of endpoints) {
@@ -163,9 +163,9 @@ function extractRounds(data: unknown, afterDate: string): DiscoveredRound[] {
     return rounds;
   }
 
-  // Handle { Rounds: [...] } or { rounds: [...] } or { data: [...] }
+  // Handle { Rounds_Rounds: [...] } or { Rounds: [...] } or { rounds: [...] } etc.
   const obj = data as Record<string, unknown>;
-  for (const key of ["Rounds", "rounds", "data", "Data", "Results", "results"]) {
+  for (const key of ["Rounds_Rounds", "Rounds", "rounds", "data", "Data", "Results", "results"]) {
     if (Array.isArray(obj[key])) {
       for (const item of obj[key] as unknown[]) {
         const r = tryParseRoundItem(item);
