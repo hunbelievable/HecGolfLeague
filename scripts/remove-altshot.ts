@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import path from "path";
-const dbPath = path.resolve(process.cwd(), "dev.db");
+const dbPath = path.resolve(process.cwd(), "data/dev.db");
 const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
 const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
 const players = ["BDizzle","NickP","holiday402","bsteffy","BozClubBreaker","TLindell"];

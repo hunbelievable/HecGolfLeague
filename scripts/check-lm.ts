@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import path from "path";
-const adapter = new PrismaLibSql({ url: `file:${path.resolve("dev.db")}` });
+const adapter = new PrismaLibSql({ url: `file:${path.resolve("data/dev.db")}` });
 const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
 
 async function main() {

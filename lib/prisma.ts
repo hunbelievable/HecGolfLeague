@@ -4,7 +4,7 @@ import path from "path";
 
 // Resolve DATABASE_URL to an absolute path — libsql requires absolute file: URIs
 function resolveDbUrl(): string {
-  const raw = process.env.DATABASE_URL ?? `file:${path.resolve(process.cwd(), "dev.db")}`;
+  const raw = process.env.DATABASE_URL ?? `file:${path.resolve(process.cwd(), "data/dev.db")}`;
   if (raw.startsWith("file:") && !raw.startsWith("file:/")) {
     // Relative path like file:./dev.db or file:dev.db → make absolute
     const rel = raw.slice("file:".length);

@@ -22,7 +22,7 @@ import { config } from "dotenv";
 
 config({ path: path.resolve(process.cwd(), ".env") });
 
-const dbPath = path.resolve(process.cwd(), "dev.db");
+const dbPath = path.resolve(process.cwd(), "data/dev.db");
 const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
 const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
 
