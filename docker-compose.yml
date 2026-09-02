@@ -6,15 +6,16 @@ services:
     ports:
       - "3002:3000"        # Access at http://your-lab-ip:3002
     environment:
-      - DATABASE_URL=file:/app/data/hec.db
+      - DATABASE_URL=file:/app/dev.db
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
-      - ./data:/app/data   # SQLite database persists here on the host
+      - ./dev.db:/app/dev.db   # SQLite database — same file name locally and on server
 
 # ── First-run setup ───────────────────────────────────────────────────────────
 #
-#   1. Copy your database into place:
-#        mkdir -p data && cp dev.db data/hec.db
+#   1. Copy your database to the server (same name, same location):
+#        scp dev.db root@<server>:/root/HecGolfLeague/dev.db
+#        ssh root@<server> "chown 1001:1001 /root/HecGolfLeague/dev.db"
 #
 #   2. Create a .env file with your Anthropic key:
 #        echo 'ANTHROPIC_API_KEY="sk-ant-..."' > .env
