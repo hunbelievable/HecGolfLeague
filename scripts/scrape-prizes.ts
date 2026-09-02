@@ -33,24 +33,28 @@ function normalizePlayer(name: string): string | null {
   return KNOWN_PLAYERS.find(p => p.toLowerCase() === lower) ?? null;
 }
 
-// ── CTP parsing ──────────────────────────────────────────────────────────────
-// Page text contains lines like:
+// ── CTP parsing ───────────────────────────────────────────────────────────────
+// Page text format (after clicking CTP tab):
 //   HOLE 5
-//   AVG - 20.92 FT
-//   BSTEFFY  8.46 FT
-//   TLINDELL  23.27 FT
+//   AVG - 29.92 FT
+//   BSTEFFY          ← player name line
+//   6.46 FT          ← distance line
+//   TLINDELL
+//   23.27 FT
 //
-// Find every "PLAYER  X.XX FT" line, pick the minimum distance overall.
+// Find distance-only lines (digits.digits FT), check the line above for a player name.
+// Pick the minimum distance across all holes.
 
 function parseCTPWinner(text: string): string | null {
-  const lineRe = /^(?!AVG)(.+?)\s+([\d]+\.[\d]+)\s*FT\s*$/gim;
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   let best: { player: string; dist: number } | null = null;
 
-  let m: RegExpExecArray | null;
-  while ((m = lineRe.exec(text)) !== null) {
-    const rawName = m[1].trim();
-    const dist = parseFloat(m[2]);
-    const player = normalizePlayer(rawName);
+  for (let i = 1; i < lines.length; i++) {
+    const distMatch = lines[i].match(/^([\d]+\.[\d]+)\s*FT$/i);
+    if (!distMatch) continue;
+
+    const dist = parseFloat(distMatch[1]);
+    const player = normalizePlayer(lines[i - 1]);
     if (!player || isNaN(dist)) continue;
     if (!best || dist < best.dist) best = { player, dist };
   }
@@ -59,13 +63,12 @@ function parseCTPWinner(text: string): string | null {
 }
 
 // ── Skins parsing ─────────────────────────────────────────────────────────────
-// Page text contains blocks like:
+// Page text format (after clicking SKINS tab):
 //   HOLE 2
-//   SCORE 4 | 2 SKINS
-//   PIKEMATRICK
+//   SCORE 4 |2 SKINS    ← N SKINS line
+//   PIKEMATRICK          ← player name on next line
 //
-// Find each "N SKINS" line, look at the next non-empty lines for a player name,
-// sum skin counts per player, return the player with the most.
+// Sum skin values per player; return the player with the highest total.
 
 function parseSkinsWinner(text: string): string | null {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -91,9 +94,15 @@ function parseSkinsWinner(text: string): string | null {
   return Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-async function fetchPageText(page: Page, url: string): Promise<string> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20000 });
-  await page.waitForTimeout(1500);
+async function clickTabAndRead(page: Page, tabLabel: string): Promise<string | null> {
+  // Tabs are not <button> elements — use text= locator
+  const el = page.locator(`text=${tabLabel}`).first();
+  if (await el.count() === 0) {
+    console.log(`  Tab "${tabLabel}" not found on page`);
+    return null;
+  }
+  await el.click();
+  await page.waitForTimeout(2000);
   return page.evaluate(() => document.body.innerText);
 }
 
@@ -103,14 +112,12 @@ async function main() {
   const userDataDir = process.env.CHROME_USER_DATA_DIR ||
     path.join(process.env.HOME || "", ".hec-golf-scraper-profile");
 
-  // Mirror the auth setup from scraper.ts
   let browser: Awaited<ReturnType<typeof chromium.launchPersistentContext>> | Awaited<ReturnType<typeof chromium.launch>>;
   let page: Page;
-  let useHeadless = false;
 
   try {
     const ctx = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
+      headless: true,
       channel: "chrome",
       args: ["--no-first-run", "--no-default-browser-check"],
     });
@@ -118,22 +125,9 @@ async function main() {
     page = ctx.pages()[0] || await ctx.newPage();
   } catch {
     console.log("Chrome profile unavailable — using headless browser");
-    useHeadless = true;
     const b = await chromium.launch({ headless: true });
     browser = b;
     page = await b.newPage();
-  }
-
-  // Verify auth (same check as scraper.ts)
-  console.log("Checking SGT authentication...");
-  await page.goto(`${BASE_URL}/sgt-api/leaderboard/${TOURNAMENT_IDS[0]}/gross`, { waitUntil: "domcontentloaded", timeout: 15000 });
-  const authText = await page.evaluate(() => document.body.innerText);
-  const isUnauthenticated = !authText.includes("finished-card") &&
-    (authText.toLowerCase().includes("login") || authText.toLowerCase().includes("sign in") || authText.length < 100);
-
-  if (!useHeadless && isUnauthenticated) {
-    console.log("Not authenticated — log in to SGT in the browser, then press Enter...");
-    await new Promise(r => process.stdin.once("data", r));
   }
 
   for (const tournamentId of TOURNAMENT_IDS) {
@@ -147,34 +141,34 @@ async function main() {
       }
     }
 
+    // Load the tournament page — tabs are loaded client-side from here
+    await page.goto(`${BASE_URL}/tournament/${tournamentId}`, { waitUntil: "domcontentloaded", timeout: 20000 });
+    await page.waitForTimeout(1500);
+
     // ── CTP ──
     let ctpWinner: string | null = null;
-    try {
-      const ctpText = await fetchPageText(page, `${BASE_URL}/sgt-api/leaderboard/${tournamentId}/ctp`);
+    const ctpText = await clickTabAndRead(page, "CTP");
+    if (ctpText) {
       ctpWinner = parseCTPWinner(ctpText);
       if (ctpWinner) {
         console.log(`  CTP winner: ${ctpWinner}`);
       } else {
-        console.log("  CTP winner: not found — page sample:");
+        console.log("  CTP tab loaded but no winner parsed. Sample:");
         console.log(ctpText.slice(0, 600));
       }
-    } catch (err) {
-      console.error("  CTP scrape error:", err);
     }
 
     // ── Skins ──
     let skinsWinner: string | null = null;
-    try {
-      const skinsText = await fetchPageText(page, `${BASE_URL}/sgt-api/leaderboard/${tournamentId}/skins`);
+    const skinsText = await clickTabAndRead(page, "SKINS");
+    if (skinsText) {
       skinsWinner = parseSkinsWinner(skinsText);
       if (skinsWinner) {
         console.log(`  Skins winner: ${skinsWinner}`);
       } else {
-        console.log("  Skins winner: not found — page sample:");
+        console.log("  Skins tab loaded but no winner parsed. Sample:");
         console.log(skinsText.slice(0, 600));
       }
-    } catch (err) {
-      console.error("  Skins scrape error:", err);
     }
 
     // ── Upsert ──
