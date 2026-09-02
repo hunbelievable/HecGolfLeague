@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PLAYER_COLORS } from "@/lib/types";
 
 interface Result {
@@ -25,11 +26,13 @@ interface Tournament {
 
 interface Props {
   events: Tournament[];
+  season: number;
 }
 
-export default function EventsClient({ events }: Props) {
+export default function EventsClient({ events, season }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [tab, setTab] = useState<"gross" | "net">("gross");
+  const router = useRouter();
 
   function toggle(id: number) {
     setExpanded(prev => {
@@ -49,20 +52,39 @@ export default function EventsClient({ events }: Props) {
             <h1 className="text-2xl font-bold text-white tracking-tight">Events</h1>
             <span className="text-sm text-gray-500 mb-0.5">{events.length} rounds</span>
           </div>
-          <div className="flex gap-1.5">
-            {(["gross", "net"] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3.5 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 ${
-                  t === tab
-                    ? "bg-green-600 text-white shadow-lg shadow-green-900/40"
-                    : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
-                }`}
-              >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            {/* Season toggle */}
+            <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+              {[1, 2].map(s => (
+                <button
+                  key={s}
+                  onClick={() => router.push(s === 2 ? "/events" : `/events?season=${s}`)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                    season === s
+                      ? "bg-green-600 text-white shadow"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  S{s}
+                </button>
+              ))}
+            </div>
+            {/* Gross/Net toggle */}
+            <div className="flex gap-1.5">
+              {(["gross", "net"] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-3.5 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-150 ${
+                    t === tab
+                      ? "bg-green-600 text-white shadow-lg shadow-green-900/40"
+                      : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
+                  }`}
+                >
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PLAYER_COLORS } from "@/lib/types";
 
 interface WeekRow {
@@ -11,14 +12,12 @@ interface WeekRow {
   isMajor: boolean;
   skinsWinner: string | null;
   ctpWinner: string | null;
-  netWinner: string | null;
 }
 
 interface LeaderboardEntry {
   playerId: string;
   skins: number;
   ctp: number;
-  net: number;
 }
 
 interface WeeklyPrizesData {
@@ -40,29 +39,49 @@ function PlayerBadge({ playerId }: { playerId: string | null }) {
 }
 
 export default function WeeklyPrizesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-40 text-gray-600 text-sm">Loading...</div>}>
+      <WeeklyPrizesContent />
+    </Suspense>
+  );
+}
+
+function WeeklyPrizesContent() {
   const [data, setData] = useState<WeeklyPrizesData | null>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const season = parseInt(searchParams.get("season") ?? "2");
 
   useEffect(() => {
-    fetch("/api/weekly-prizes")
+    fetch(`/api/weekly-prizes?season=${season}`)
       .then((r) => r.json())
       .then(setData);
-  }, []);
+  }, [season]);
 
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center h-40 text-gray-600 text-sm">
-        Loading...
-      </div>
-    );
-  }
-
-  const { weeks, leaderboard } = data;
+  const { weeks, leaderboard } = data ?? { weeks: [], leaderboard: [] };
 
   return (
     <div className="space-y-8">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Weekly Prizes</h1>
+        <div className="flex items-end justify-between mb-1">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Weekly Prizes</h1>
+          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+            {[1, 2].map(s => (
+              <button
+                key={s}
+                onClick={() => router.push(s === 2 ? "/weekly-prizes" : `/weekly-prizes?season=${s}`)}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                  season === s
+                    ? "bg-green-600 text-white shadow"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                S{s}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
       </div>
 
@@ -85,9 +104,6 @@ export default function WeeklyPrizesPage() {
                 </th>
                 <th className="text-center px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">
                   Skins
-                </th>
-                <th className="text-center px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest border-l border-gray-800">
-                  Net Wins
                 </th>
               </tr>
             </thead>
@@ -130,15 +146,6 @@ export default function WeeklyPrizesPage() {
                         <span className="text-gray-700 text-xs">0</span>
                       )}
                     </td>
-                    <td className="text-center px-4 py-3 border-l border-gray-800">
-                      {entry.net > 0 ? (
-                        <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-md bg-yellow-500/15 text-yellow-400 text-xs font-bold">
-                          {entry.net}
-                        </span>
-                      ) : (
-                        <span className="text-gray-700 text-xs">0</span>
-                      )}
-                    </td>
                   </tr>
                 );
               })}
@@ -170,9 +177,6 @@ export default function WeeklyPrizesPage() {
                 <th className="text-center px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">
                   Skins
                 </th>
-                <th className="text-center px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">
-                  Net Win
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -199,9 +203,6 @@ export default function WeeklyPrizesPage() {
                   </td>
                   <td className="text-center px-4 py-3">
                     <PlayerBadge playerId={w.skinsWinner} />
-                  </td>
-                  <td className="text-center px-4 py-3">
-                    <PlayerBadge playerId={w.netWinner} />
                   </td>
                 </tr>
               ))}

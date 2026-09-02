@@ -8,10 +8,9 @@ import {
 import type { StandingsData, PlayerStanding } from "@/lib/types";
 import { PLAYER_COLORS } from "@/lib/types";
 
-const PLAYERS = ["BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell"];
-
 interface Props {
   data: StandingsData;
+  season: number;
 }
 
 function positionSuffix(pos: number) {
@@ -21,11 +20,13 @@ function positionSuffix(pos: number) {
   return "th";
 }
 
-export default function StandingsClient({ data }: Props) {
+export default function StandingsClient({ data, season }: Props) {
   const [tab, setTab] = useState<"gross" | "net">("gross");
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const standings = tab === "gross" ? data.gross : data.net;
+  // Derive player list from whoever has results in this season's data
+  const players = data.gross.map(s => s.playerId);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -33,9 +34,27 @@ export default function StandingsClient({ data }: Props) {
     <div>
       {/* Page header */}
       <div className="mb-6">
-        <div className="flex items-end gap-3 mb-1">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Season Standings</h1>
-          <span className="text-sm text-gray-500 mb-0.5">{data.pointsHistory.length} Events</span>
+        <div className="flex items-end justify-between mb-1">
+          <div className="flex items-end gap-3">
+            <h1 className="text-2xl font-bold text-white tracking-tight">Season Standings</h1>
+            <span className="text-sm text-gray-500 mb-0.5">{data.pointsHistory.length} Events</span>
+          </div>
+          {/* Season toggle */}
+          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+            {[1, 2].map(s => (
+              <button
+                key={s}
+                onClick={() => router.push(s === 2 ? "/" : `/?season=${s}`)}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                  season === s
+                    ? "bg-green-600 text-white shadow"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                S{s}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
       </div>
@@ -191,7 +210,7 @@ export default function StandingsClient({ data }: Props) {
             <Legend
               wrapperStyle={{ fontSize: 11, color: "#6b7280", paddingTop: 12 }}
             />
-            {PLAYERS.map(pid => (
+            {players.map(pid => (
               <Line
                 key={pid}
                 type="monotone"

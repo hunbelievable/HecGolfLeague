@@ -24,9 +24,8 @@ export default function Nav() {
             <span className="text-lg leading-none">⛳</span>
             <div className="flex items-baseline gap-2">
               <span className="font-bold text-white tracking-tight text-sm sm:text-base">
-                HEC Winter League
+                HEC Golf League
               </span>
-              <span className="text-xs text-gray-600 font-mono hidden sm:inline">2025–26</span>
             </div>
           </div>
 

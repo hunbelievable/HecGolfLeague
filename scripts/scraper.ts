@@ -23,9 +23,13 @@ const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
 const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
 
 const BASE_URL = "https://simulatorgolftour.com";
-const TOUR_ID = 2248;
 
-const TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918];
+// Season 1 (Spring 2026) — Tour 2248
+// const SEASON_1_TOURNAMENT_IDS = [40579, 43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918];
+
+// Season 2 (Fall 2026) — Tour 3337
+const TOUR_ID = 3337;
+const TOURNAMENT_IDS = [67662];
 
 interface LeaderboardEntry {
   position: number;

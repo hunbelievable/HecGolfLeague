@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PLAYER_COLORS } from "@/lib/types";
 
 interface Result {
@@ -28,18 +29,25 @@ interface Player {
 interface Props {
   tournaments: Tournament[];
   players: Player[];
+  season: number;
 }
-
-const PLAYER_IDS = ["BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell"];
 
 function scoreToNum(score: string): number {
   if (score === "E") return 0;
   return parseInt(score.replace("+", "")) || 0;
 }
 
-export default function HeadToHeadClient({ tournaments, players }: Props) {
-  const [player1, setPlayer1] = useState("holiday402");
-  const [player2, setPlayer2] = useState("BDizzle");
+export default function HeadToHeadClient({ tournaments, players, season }: Props) {
+  // Derive active player IDs from whoever has results in this season
+  const activeIds = Array.from(
+    new Set(tournaments.flatMap(t => t.results.map(r => r.playerId)))
+  ).sort();
+  const defaultP1 = activeIds.includes("holiday402") ? "holiday402" : (activeIds[0] ?? "");
+  const defaultP2 = activeIds.find(id => id !== defaultP1) ?? (activeIds[1] ?? "");
+
+  const [player1, setPlayer1] = useState(defaultP1);
+  const [player2, setPlayer2] = useState(defaultP2);
+  const router = useRouter();
   const [tab, setTab] = useState<"gross" | "net">("gross");
 
   const head1 = players.find(p => p.id === player1);
@@ -80,7 +88,24 @@ export default function HeadToHeadClient({ tournaments, players }: Props) {
     <div>
       {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white tracking-tight mb-1">Head to Head</h1>
+        <div className="flex items-end justify-between mb-1">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Head to Head</h1>
+          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+            {[1, 2].map(s => (
+              <button
+                key={s}
+                onClick={() => router.push(s === 2 ? "/head-to-head" : `/head-to-head?season=${s}`)}
+                className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                  season === s
+                    ? "bg-green-600 text-white shadow"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                S{s}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
       </div>
 
@@ -98,7 +123,7 @@ export default function HeadToHeadClient({ tournaments, players }: Props) {
               onChange={e => setPlayer1(e.target.value)}
               className="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-600/60 transition-colors"
             >
-              {PLAYER_IDS.filter(id => id !== player2).map(id => (
+              {activeIds.filter(id => id !== player2).map(id => (
                 <option key={id} value={id}>{id}</option>
               ))}
             </select>
@@ -117,7 +142,7 @@ export default function HeadToHeadClient({ tournaments, players }: Props) {
               onChange={e => setPlayer2(e.target.value)}
               className="flex-1 bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-green-600/60 transition-colors"
             >
-              {PLAYER_IDS.filter(id => id !== player1).map(id => (
+              {activeIds.filter(id => id !== player1).map(id => (
                 <option key={id} value={id}>{id}</option>
               ))}
             </select>

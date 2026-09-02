@@ -11,6 +11,7 @@ model Tournament {
   name      String
   week      String
   date      String
+  season    Int      @default(1)
   isMajor   Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

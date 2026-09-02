@@ -10,8 +10,9 @@ function scoreToNumber(score: string): number {
   return isNaN(n) ? 0 : n;
 }
 
-async function getStandingsData(): Promise<StandingsData> {
+async function getStandingsData(season: number): Promise<StandingsData> {
   const tournaments = await prisma.tournament.findMany({
+    where: { season },
     orderBy: { date: "asc" },
     include: { results: { include: { player: true } } },
   });
@@ -99,7 +100,13 @@ async function getStandingsData(): Promise<StandingsData> {
   return { gross: buildStandings("gross"), net: buildStandings("net"), pointsHistory };
 }
 
-export default async function StandingsPage() {
-  const data = await getStandingsData();
-  return <StandingsClient data={data} />;
+export default async function StandingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string }>;
+}) {
+  const params = await searchParams;
+  const season = params.season ? parseInt(params.season) : 2;
+  const data = await getStandingsData(season);
+  return <StandingsClient data={data} season={season} />;
 }

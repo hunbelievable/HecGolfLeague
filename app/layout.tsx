@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HEC Tuesday Winter League",
-  description: "6-player simulator golf league dashboard",
+  title: "HEC Golf League",
+  description: "Simulator golf league dashboard",
 };
 
 export default function RootLayout({
