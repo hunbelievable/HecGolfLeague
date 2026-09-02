@@ -19,16 +19,25 @@ const BASE_URL = "https://simulatorgolftour.com";
 
 // SGT user ID mapping
 const PLAYER_SGT_IDS: Record<string, number> = {
-  BDizzle:       32758,
-  NickP:         32767,
-  holiday402:    21975,
-  bsteffy:       36710,
+  // Season 1
+  BDizzle:        32758,
+  NickP:          32767,
+  holiday402:     21975,
+  bsteffy:        36710,
   BozClubBreaker: 36728,
-  TLindell:      33297,
+  TLindell:       33297,
+  // Season 2 new players
+  PikeMatrick:    47246,
+  FavHoliday27:   47402,
+  HuskerRC13:     47232,
+  "2FlumsUp":     47263,
 };
 
-// 40579 = Week 1 (Cypress Point Club) — manually entered, no shot data on portal
-const TOURNAMENT_IDS = [43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918];
+// Season 1: 40579 = Week 1 (Cypress Point Club) — manually entered, no shot data on portal
+const TOURNAMENT_IDS = [
+  43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918, // S1
+  67662, // S2 Week 1 Kauri Cliffs
+];
 
 interface HoleData {
   holeNumber: number;

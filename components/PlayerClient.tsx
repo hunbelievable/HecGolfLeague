@@ -14,6 +14,7 @@ interface Tournament {
   week: string;
   date: string;
   isMajor: boolean;
+  season: number;
 }
 
 interface Result {
@@ -62,19 +63,36 @@ export default function PlayerClient({ player }: Props) {
   );
   const [prizeWins, setPrizeWins] = useState<{ skins: number; ctp: number } | null>(null);
 
+  // Season filter — default to most recent season with data
+  const seasons = Array.from(new Set(player.results.map(r => r.tournament.season))).sort((a, b) => b - a);
+  const [activeSeason, setActiveSeason] = useState(seasons[0] ?? 2);
+
   useEffect(() => {
-    fetch("/api/weekly-prizes")
+    fetch(`/api/weekly-prizes?season=${activeSeason}`)
       .then(r => r.json())
       .then(({ leaderboard }: { leaderboard: { playerId: string; skins: number; ctp: number; net: number }[] }) => {
         const entry = leaderboard.find(e => e.playerId === player.id);
         setPrizeWins(entry ? { skins: entry.skins, ctp: entry.ctp } : { skins: 0, ctp: 0 });
       })
       .catch(() => setPrizeWins({ skins: 0, ctp: 0 }));
-  }, [player.id]);
+  }, [player.id, activeSeason]);
 
-  const grossResults = player.results.filter(r => r.type === "gross");
-  const netResults = player.results.filter(r => r.type === "net");
+  const allGross = player.results.filter(r => r.type === "gross");
+  const allNet   = player.results.filter(r => r.type === "net");
+
+  const grossResults = allGross.filter(r => r.tournament.season === activeSeason);
+  const netResults   = allNet.filter(r => r.tournament.season === activeSeason);
   const activeResults = resultTab === "gross" ? grossResults : netResults;
+
+  // Handicap per round: derived from gross score - net score (strokes over par)
+  const netByTournament = new Map(allNet.map(r => [r.tournamentId, r]));
+  function roundHandicap(tournamentId: number): number | null {
+    const g = allGross.find(r => r.tournamentId === tournamentId);
+    const n = netByTournament.get(tournamentId);
+    if (!g || !n) return null;
+    const diff = scoreToNum(g.score) - scoreToNum(n.score);
+    return diff === 0 ? 0 : diff;
+  }
 
   // Compute stats
   const grossWins = grossResults.filter(r => r.position === 1).length;
@@ -137,19 +155,38 @@ export default function PlayerClient({ player }: Props) {
           <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
           <span>Back to Standings</span>
         </Link>
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-full flex-shrink-0 ring-2 ring-black/20"
-            style={{ backgroundColor: color }}
-          />
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight leading-none mb-0.5">
-              {player.id}
-            </h1>
-            <span className="text-xs text-gray-500 font-mono">
-              Handicap {player.handicap}
-            </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex-shrink-0 ring-2 ring-black/20"
+              style={{ backgroundColor: color }}
+            />
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight leading-none mb-0.5">
+                {player.id}
+              </h1>
+              <span className="text-xs text-gray-500 font-mono">
+                Handicap {player.handicap}
+              </span>
+            </div>
           </div>
+          {seasons.length > 1 && (
+            <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+              {seasons.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setActiveSeason(s)}
+                  className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                    activeSeason === s
+                      ? "bg-green-600 text-white shadow"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  S{s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent mt-4" />
       </div>
@@ -273,6 +310,7 @@ export default function PlayerClient({ player }: Props) {
               <th className="text-left px-5 py-2.5 font-semibold">Event</th>
               <th className="text-center px-3 py-2.5 font-semibold">Pos</th>
               <th className="text-center px-3 py-2.5 font-semibold">Score</th>
+              <th className="text-center px-3 py-2.5 font-semibold hidden sm:table-cell">HCP</th>
               <th className="text-right px-5 py-2.5 font-semibold">Pts</th>
             </tr>
           </thead>
@@ -302,6 +340,13 @@ export default function PlayerClient({ player }: Props) {
                   </span>
                 </td>
                 <td className="px-3 py-3 text-center font-mono text-sm text-gray-200">{r.score}</td>
+                <td className="px-3 py-3 text-center hidden sm:table-cell">
+                  {(() => {
+                    const hcp = roundHandicap(r.tournamentId);
+                    if (hcp === null) return <span className="text-gray-700 text-xs">—</span>;
+                    return <span className="text-xs text-gray-500 font-mono">{hcp}</span>;
+                  })()}
+                </td>
                 <td className="px-5 py-3 text-right text-gray-500 font-mono text-xs">
                   {r.points.toLocaleString()}
                 </td>
@@ -325,7 +370,7 @@ export default function PlayerClient({ player }: Props) {
           </p>
         </div>
         <div className="divide-y divide-gray-800/60 bg-gray-900">
-          {grossResults.map((r, i) => {
+          {grossResults.map((r) => {
             const isOpen = expandedRound === r.tournamentId;
             return (
               <div key={r.tournamentId}>
@@ -383,7 +428,7 @@ export default function PlayerClient({ player }: Props) {
           </div>
         )}
         <div className="divide-y divide-gray-800/60 bg-gray-900">
-          {grossResults.map((r, i) => {
+          {grossResults.map((r) => {
             const hasReport = !!reports[r.tournamentId];
             const isExpanded = expandedReport === r.tournamentId;
             const isGenerating = generating === r.tournamentId;

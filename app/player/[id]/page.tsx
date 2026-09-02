@@ -10,7 +10,7 @@ async function getPlayerData(id: string) {
     include: {
       results: {
         include: { tournament: true },
-        orderBy: [{ tournament: { date: "asc" } }, { type: "asc" }],
+        orderBy: [{ tournament: { date: "desc" } }, { type: "asc" }],
       },
       coachingReports: {
         orderBy: { tournamentId: "asc" },
