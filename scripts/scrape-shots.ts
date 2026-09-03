@@ -43,6 +43,7 @@ interface HoleData {
   holeNumber: number;
   par: number;
   shots: string[];
+  actualScore?: number; // from scorecard table — more reliable than shots.length
 }
 
 function parseShotDataFromText(text: string): HoleData[] {
@@ -93,38 +94,96 @@ function parseShotDataFromText(text: string): HoleData[] {
   return Array.from(holeMap.values()).sort((a, b) => a.holeNumber - b.holeNumber);
 }
 
+// Read actual per-hole gross scores from the scorecard table (default tab).
+// This is the authoritative source — penalty strokes are included here but
+// may not appear in shot descriptions on the SHOT DATA tab.
+async function scrapeActualScores(page: Page): Promise<Map<number, { par: number; score: number }>> {
+  return page.evaluate(() => {
+    const table = document.querySelector("table.scorecard-table");
+    if (!table) return [];
+
+    const rows = Array.from(table.querySelectorAll("tr"));
+    let holeRow: Element | null = null;
+    let parRow: Element | null = null;
+    let grossRow: Element | null = null;
+
+    for (const row of rows) {
+      const label = row.querySelector("td")?.textContent?.trim().toUpperCase();
+      if (label === "HOLE")  holeRow  = row;
+      if (label === "PAR")   parRow   = row;
+      if (label === "GROSS") grossRow = row;
+    }
+
+    if (!holeRow || !parRow || !grossRow) return [];
+
+    const cells = (row: Element) =>
+      Array.from(row.querySelectorAll("td"))
+        .slice(1) // skip label cell
+        .map(td => td.textContent?.trim() ?? "")
+        .filter(t => t !== "" && t.toUpperCase() !== "TOTAL");
+
+    const holes  = cells(holeRow).map(Number);
+    const pars   = cells(parRow).map(Number);
+    const scores = cells(grossRow).map(Number);
+
+    return holes.map((h, i) => ({ hole: h, par: pars[i], score: scores[i] }));
+  }).then(rows => {
+    const m = new Map<number, { par: number; score: number }>();
+    for (const r of rows as { hole: number; par: number; score: number }[]) {
+      if (r.hole && !isNaN(r.score)) m.set(r.hole, { par: r.par, score: r.score });
+    }
+    return m;
+  });
+}
+
 async function scrapeShotData(page: Page, tournamentId: number, playerId: string, sgtUserId: number): Promise<HoleData[] | null> {
   const url = `${BASE_URL}/scorecard/${tournamentId}/${sgtUserId}`;
 
   try {
     await page.goto(url, { waitUntil: "networkidle", timeout: 20000 });
 
-    // Click SHOT DATA tab, then wait for shot descriptions to appear.
-    // "N YDS TO [LIE]" patterns only exist in the SHOT DATA tab, not the scorecard tab.
-    // We wait until the count stabilises — firing at exactly 18 means only 1 shot/hole
-    // is rendered (1 "YDS TO" per hole). We want >=54 which implies >=3 per hole on avg.
+    // Read authoritative per-hole scores from the default scorecard table FIRST.
+    const actualScores = await scrapeActualScores(page);
+
+    // Click SHOT DATA tab for shot descriptions.
     const shotDataTab = page.getByText("SHOT DATA", { exact: false });
     if (await shotDataTab.count() > 0) {
       await shotDataTab.first().click();
-      // Wait for a generous number of "YDS TO" hits — each approach shot produces 1-2.
-      // 54 = ~3 per hole × 18 holes, ensuring multiple shots per hole have rendered.
+      // For 9-hole rounds the threshold of 54 always times out — just wait a bit.
       await page.waitForFunction(
-        () => (document.body.innerText.match(/\d+ YDS TO [A-Z]/g) || []).length >= 54,
+        () => (document.body.innerText.match(/\d+ YDS TO [A-Z]/g) || []).length >= 18,
         { timeout: 12000 }
-      ).catch(() => {
-        // Timeout is fine — grab whatever is there
-      });
-      // Brief extra pause for any remaining React renders
-      await page.waitForTimeout(500);
+      ).catch(() => {});
+      await page.waitForTimeout(800);
     }
 
     const bodyText = await page.evaluate(() => document.body.innerText);
-    const holes = parseShotDataFromText(bodyText);
+    const shotHoles = parseShotDataFromText(bodyText);
 
-    // Debug summary
+    // Merge: use actual scores as the authority for every hole the scorecard knows about.
+    // For holes with shot descriptions, merge them in. For holes only in the scorecard
+    // (shot tab failed to render), still create an entry with the correct score.
+    const merged = new Map<number, HoleData>();
+
+    // Seed from authoritative scores
+    for (const [holeNum, { par, score }] of actualScores) {
+      merged.set(holeNum, { holeNumber: holeNum, par, shots: [], actualScore: score });
+    }
+
+    // Overlay shot descriptions
+    for (const h of shotHoles) {
+      const existing = merged.get(h.holeNumber);
+      if (existing) {
+        existing.shots = h.shots;
+      } else {
+        merged.set(h.holeNumber, { ...h, actualScore: h.shots.length });
+      }
+    }
+
+    const holes = Array.from(merged.values()).sort((a, b) => a.holeNumber - b.holeNumber);
+
     if (holes.length > 0) {
-      const totalShots = holes.reduce((s, h) => s + h.shots.length, 0);
-      process.stdout.write(`[${holes.length}H avg${(totalShots / holes.length).toFixed(1)}] `);
+      process.stdout.write(`[${holes.length}H] `);
     }
 
     return holes.length > 0 ? holes : null;
@@ -169,12 +228,13 @@ async function main() {
         continue;
       }
 
-      // Save each hole
+      // Save each hole — use actualScore (from scorecard table) as the authoritative count
       for (const hole of holes) {
+        const shotsCount = hole.actualScore ?? hole.shots.length;
         await prisma.shotData.upsert({
           where: { tournamentId_playerId_holeNumber: { tournamentId, playerId, holeNumber: hole.holeNumber } },
-          update: { par: hole.par, shots: JSON.stringify(hole.shots), shotsCount: hole.shots.length },
-          create: { tournamentId, playerId, holeNumber: hole.holeNumber, par: hole.par, shots: JSON.stringify(hole.shots), shotsCount: hole.shots.length },
+          update: { par: hole.par, shots: JSON.stringify(hole.shots), shotsCount },
+          create: { tournamentId, playerId, holeNumber: hole.holeNumber, par: hole.par, shots: JSON.stringify(hole.shots), shotsCount },
         });
       }
 
