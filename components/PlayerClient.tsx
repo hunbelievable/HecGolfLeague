@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { PLAYER_COLORS } from "@/lib/types";
 import CombinedRoundView from "./CombinedRoundView";
@@ -43,8 +44,31 @@ interface Player {
   coachingReports: CoachingReport[];
 }
 
+interface ShotRow {
+  tournamentId: number;
+  holeNumber: number;
+  par: number;
+  shotsCount: number;
+}
+
+interface RoundStat {
+  tournamentId: number;
+  scoringAvg: number | null;
+  drivingDist: number | null;
+  fir: number | null;
+  gir: number | null;
+  sandSave: number | null;
+  scrambling: number | null;
+  puttsPerRound: number | null;
+  puttsPerGir: number | null;
+  girProximity: number | null;
+  tournament: { id: number; name: string; week: string; season: number };
+}
+
 interface Props {
   player: Player;
+  shotData: ShotRow[];
+  roundStats: RoundStat[];
 }
 
 function scoreToNum(score: string): number {
@@ -52,7 +76,50 @@ function scoreToNum(score: string): number {
   return parseInt(score.replace("+", "")) || 0;
 }
 
-export default function PlayerClient({ player }: Props) {
+// ── Score distribution helpers ─────────────────────────────────────────────
+
+const SCORE_CATS = [
+  { key: "eagle",  label: "Eagle+", color: "#fbbf24" },
+  { key: "birdie", label: "Birdie",  color: "#38bdf8" },
+  { key: "par",    label: "Par",     color: "#6b7280" },
+  { key: "bogey",  label: "Bogey",   color: "#f97316" },
+  { key: "double", label: "Double",  color: "#ef4444" },
+  { key: "triple", label: "Triple+", color: "#991b1b" },
+];
+
+function classifyShot(shotsCount: number, par: number): string {
+  const diff = shotsCount - par;
+  if (diff <= -2) return "eagle";
+  if (diff === -1) return "birdie";
+  if (diff === 0)  return "par";
+  if (diff === 1)  return "bogey";
+  if (diff === 2)  return "double";
+  return "triple";
+}
+
+function buildScoreDistribution(shotData: ShotRow[]) {
+  const counts: Record<string, number> = { eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, triple: 0 };
+  for (const row of shotData) {
+    counts[classifyShot(row.shotsCount, row.par)]++;
+  }
+  return SCORE_CATS.map(c => ({ ...c, value: counts[c.key] })).filter(c => c.value > 0);
+}
+
+// ── Round stats helpers ────────────────────────────────────────────────────
+
+const STAT_LABELS: { key: keyof RoundStat; label: string; fmt: (v: number) => string }[] = [
+  { key: "scoringAvg",    label: "Scoring Avg",   fmt: v => `+${v.toFixed(1)}` },
+  { key: "drivingDist",   label: "Drive Dist",    fmt: v => `${v.toFixed(0)} yds` },
+  { key: "fir",           label: "FIR %",         fmt: v => `${v.toFixed(0)}%` },
+  { key: "gir",           label: "GIR %",         fmt: v => `${v.toFixed(0)}%` },
+  { key: "sandSave",      label: "Sand Save %",   fmt: v => `${v.toFixed(0)}%` },
+  { key: "scrambling",    label: "Scrambling %",  fmt: v => `${v.toFixed(0)}%` },
+  { key: "puttsPerRound", label: "Putts/Rnd",     fmt: v => v.toFixed(1) },
+  { key: "puttsPerGir",   label: "Putts/GIR",     fmt: v => v.toFixed(2) },
+  { key: "girProximity",  label: "GIR Prox",      fmt: v => `${v.toFixed(1)} ft` },
+];
+
+export default function PlayerClient({ player, shotData, roundStats }: Props) {
   const [resultTab, setResultTab] = useState<"gross" | "net">("gross");
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const [expandedReport, setExpandedReport] = useState<number | null>(null);
@@ -115,6 +182,19 @@ export default function PlayerClient({ player }: Props) {
   }));
 
   const color = PLAYER_COLORS[player.id] ?? "#10b981";
+
+  // Score distribution (all seasons combined, or filter by active season)
+  const seasonTournamentIds = new Set(
+    grossResults.map(r => r.tournamentId)
+  );
+  const seasonShots = shotData.filter(s => seasonTournamentIds.has(s.tournamentId));
+  const scoreDist = buildScoreDistribution(seasonShots);
+
+  // Round stats for active season
+  const seasonRoundStats = roundStats.filter(s => s.tournament.season === activeSeason);
+  const hasAnyStats = seasonRoundStats.some(s =>
+    STAT_LABELS.some(l => s[l.key] !== null)
+  );
 
   async function generateReport(tournamentId: number) {
     setGenerating(tournamentId);
@@ -281,6 +361,109 @@ export default function PlayerClient({ player }: Props) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Score Distribution Pie Chart */}
+      {scoreDist.length > 0 && (
+        <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 mb-6">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Score Distribution</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Hole-by-hole breakdown across all rounds this season</p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <ResponsiveContainer width={200} height={180}>
+              <PieChart>
+                <Pie
+                  data={scoreDist}
+                  dataKey="value"
+                  nameKey="label"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={2}
+                >
+                  {scoreDist.map((entry) => (
+                    <Cell key={entry.key} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#111827",
+                    border: "1px solid #374151",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                  formatter={(v: unknown, name: unknown) => [v, name]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              {scoreDist.map(entry => {
+                const total = scoreDist.reduce((s, e) => s + e.value, 0);
+                const pct = total > 0 ? ((entry.value / total) * 100).toFixed(0) : "0";
+                return (
+                  <div key={entry.key} className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className="text-xs text-gray-400 w-16 flex-shrink-0">{entry.label}</span>
+                    <div className="flex-1 bg-gray-800 rounded-full h-1.5 min-w-[60px]">
+                      <div
+                        className="h-1.5 rounded-full"
+                        style={{ backgroundColor: entry.color, width: `${pct}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-mono text-gray-500 w-10 text-right">{entry.value} ({pct}%)</span>
+                  </div>
+                );
+              })}
+              <div className="mt-1 pt-1.5 border-t border-gray-800 text-xs text-gray-600 font-mono">
+                {scoreDist.reduce((s, e) => s + e.value, 0)} holes total
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Round Stats Table */}
+      {hasAnyStats && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 mb-6 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-800">
+            <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Round Stats</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Per-round statistics from SGT portal</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-max">
+              <thead>
+                <tr className="bg-gray-900/80 border-b border-gray-800 text-gray-500 uppercase tracking-widest">
+                  <th className="text-left px-4 py-2 font-semibold sticky left-0 bg-gray-900/80 z-10 min-w-[80px]">Week</th>
+                  {STAT_LABELS.map(s => (
+                    <th key={String(s.key)} className="text-center px-3 py-2 font-semibold whitespace-nowrap">{s.label}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {seasonRoundStats.map((row, i) => (
+                  <tr
+                    key={row.tournamentId}
+                    className={`border-b border-gray-800/50 last:border-0 ${i % 2 === 0 ? "bg-gray-900" : "bg-gray-950/40"}`}
+                  >
+                    <td className={`px-4 py-2 sticky left-0 z-10 font-mono text-gray-500 ${i % 2 === 0 ? "bg-gray-900" : "bg-gray-950/40"}`}>
+                      {row.tournament.week}
+                    </td>
+                    {STAT_LABELS.map(s => {
+                      const v = row[s.key] as number | null;
+                      return (
+                        <td key={String(s.key)} className="text-center px-3 py-2 font-mono text-gray-300">
+                          {v !== null ? s.fmt(v) : <span className="text-gray-700">—</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Round-by-round results */}
       <div className="rounded-xl border border-gray-800 overflow-hidden mb-6">

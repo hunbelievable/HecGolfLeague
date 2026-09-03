@@ -19,6 +19,8 @@ model Tournament {
   results            Result[]
   launchMonitorShots LaunchMonitorShot[]
   weeklyPrize        WeeklyPrize?
+  playerRoundStats   PlayerRoundStats[]
+  longDrives         LongDrive[]
 }
 
 model WeeklyPrize {
@@ -39,6 +41,8 @@ model Player {
   coachingReports    CoachingReport[]
   shotData           ShotData[]
   launchMonitorShots LaunchMonitorShot[]
+  playerRoundStats   PlayerRoundStats[]
+  longDrives         LongDrive[]
 }
 
 model Result {
@@ -108,6 +112,42 @@ model LaunchMonitorShot {
   player     Player     @relation(fields: [playerId], references: [id])
 
   @@index([tournamentId, playerId])
+}
+
+model PlayerRoundStats {
+  id            Int    @id @default(autoincrement())
+  tournamentId  Int
+  playerId      String
+
+  scoringAvg    Float?
+  drivingDist   Float?
+  fir           Float?
+  gir           Float?
+  sandSave      Float?
+  scrambling    Float?
+  puttsPerRound Float?
+  puttsPerGir   Float?
+  girProximity  Float?
+
+  createdAt DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  player     Player     @relation(fields: [playerId], references: [id])
+
+  @@unique([tournamentId, playerId])
+}
+
+model LongDrive {
+  id           Int    @id @default(autoincrement())
+  tournamentId Int
+  holeNumber   Int
+  playerId     String
+  distanceYds  Float
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+  player     Player     @relation(fields: [playerId], references: [id])
+
+  @@unique([tournamentId, holeNumber, playerId])
 }
 
 model CoachingReport {

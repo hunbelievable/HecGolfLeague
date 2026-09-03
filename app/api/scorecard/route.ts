@@ -6,15 +6,17 @@ export async function GET(req: NextRequest) {
   const tournamentId = parseInt(searchParams.get("tournamentId") ?? "");
   if (isNaN(tournamentId)) return NextResponse.json({ error: "Missing tournamentId" }, { status: 400 });
 
-  const [shotRows, results] = await Promise.all([
+  const [shotRows, results, longDrives] = await Promise.all([
     prisma.shotData.findMany({
       where: { tournamentId },
       orderBy: [{ playerId: "asc" }, { holeNumber: "asc" }],
     }),
-    // Use gross results for player ordering and scoring
     prisma.result.findMany({
       where: { tournamentId, type: "gross" },
       orderBy: { position: "asc" },
+    }),
+    prisma.longDrive.findMany({
+      where: { tournamentId },
     }),
   ]);
 
@@ -45,5 +47,17 @@ export async function GET(req: NextRequest) {
     scores: holes.map(h => byPlayer.get(id)?.get(h) ?? null),
   }));
 
-  return NextResponse.json({ holes, pars, players });
+  // Long drive: per hole, find the player with the max distance
+  const ldByHole = new Map<number, { playerId: string; distanceYds: number }>();
+  for (const ld of longDrives) {
+    const existing = ldByHole.get(ld.holeNumber);
+    if (!existing || ld.distanceYds > existing.distanceYds) {
+      ldByHole.set(ld.holeNumber, { playerId: ld.playerId, distanceYds: ld.distanceYds });
+    }
+  }
+
+  // Build longDrives array aligned to holes array
+  const longDriveWinners = holes.map(h => ldByHole.get(h) ?? null);
+
+  return NextResponse.json({ holes, pars, players, longDriveWinners });
 }
