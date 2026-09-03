@@ -78,14 +78,19 @@ function parseStatBody(text: string): Map<string, number> {
 }
 
 // Fetch a URL using the browser's session (already on the tournament page).
-// Returns the response body text, or null on non-200.
+// The responses are HTML fragments — parse them to extract innerText.
+// Returns innerText of the response, or null on failure.
 async function fetchWithSession(page: Page, url: string): Promise<string | null> {
   const result = await page.evaluate(async (fetchUrl: string) => {
     try {
       const res = await fetch(fetchUrl, { credentials: "include" });
       if (!res.ok) return { ok: false, status: res.status, body: null };
-      const text = await res.text();
-      return { ok: true, status: res.status, body: text };
+      const html = await res.text();
+      if (!html || html.trim().length === 0) return { ok: false, status: res.status, body: null };
+      // Parse the HTML fragment and extract innerText
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      return { ok: true, status: res.status, body: doc.body.innerText };
     } catch (e) {
       return { ok: false, status: 0, body: null };
     }
