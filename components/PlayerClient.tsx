@@ -106,13 +106,45 @@ function buildScoreDistribution(shotData: ShotRow[]) {
   return SCORE_CATS.map(c => ({ ...c, value: counts[c.key] })).filter(c => c.value > 0);
 }
 
-// ── Putting helpers ───────────────────────────────────────────────────────
+// ── Putting ───────────────────────────────────────────────────────────────
 
-function parsePuttCount(shotsJson: string): number {
+const PUTT_CATS = [
+  { key: "chipIn" as const,        label: "Chip-In", color: "#fbbf24" },
+  { key: "onePutt" as const,       label: "1-Putt",  color: "#38bdf8" },
+  { key: "twoPutt" as const,       label: "2-Putt",  color: "#6b7280" },
+  { key: "threePlusPutt" as const, label: "3-Putt+", color: "#ef4444" },
+];
+
+function PuttingDonutChart({ summary }: { summary: PuttingSummary }) {
+  const data = PUTT_CATS.map(c => ({
+    ...c,
+    value: summary[c.key],
+    pct: summary.total > 0 ? (summary[c.key] / summary.total) * 100 : 0,
+  })).filter(c => c.value > 0);
+  if (data.length === 0) return null;
+  return (
+    <ResponsiveContainer width="100%" height={140}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={38} outerRadius={58} strokeWidth={1} stroke="#111827">
+          {data.map(entry => <Cell key={entry.key} fill={entry.color} />)}
+        </Pie>
+        <Tooltip
+          contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }}
+          formatter={(v, name) => [`${v} (${data.find(d => d.label === name)?.pct.toFixed(0)}%)`, name]}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+
+
+function parsePuttCount(shotsJson: string): number | null {
   try {
     const arr: string[] = JSON.parse(shotsJson);
+    if (arr.length === 0) return null; // no shot data — skip hole
     return arr.filter(s => s === "AUTO-PUTT").length;
-  } catch { return 0; }
+  } catch { return null; }
 }
 
 interface PuttingSummary {
@@ -124,15 +156,17 @@ interface PuttingSummary {
 }
 
 function buildPuttingSummary(shotData: ShotRow[]): PuttingSummary {
-  let chipIn = 0, onePutt = 0, twoPutt = 0, threePlusPutt = 0;
+  let chipIn = 0, onePutt = 0, twoPutt = 0, threePlusPutt = 0, total = 0;
   for (const row of shotData) {
     const p = parsePuttCount(row.shots);
+    if (p === null) continue; // no shot data for this hole
+    total++;
     if (p === 0) chipIn++;
     else if (p === 1) onePutt++;
     else if (p === 2) twoPutt++;
     else threePlusPutt++;
   }
-  return { chipIn, onePutt, twoPutt, threePlusPutt, total: shotData.length };
+  return { chipIn, onePutt, twoPutt, threePlusPutt, total };
 }
 
 // ── Round stats helpers ────────────────────────────────────────────────────
@@ -459,21 +493,22 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
             <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Putting</h2>
             <p className="text-xs text-gray-600 mt-0.5">Computed from GSPro shot data · {puttingSummary.total} holes</p>
           </div>
-          <div className="grid grid-cols-4 divide-x divide-gray-800">
-            {[
-              { label: "Chip-In",  value: puttingSummary.chipIn,         color: "#fbbf24" },
-              { label: "1-Putt",   value: puttingSummary.onePutt,        color: "#38bdf8" },
-              { label: "2-Putt",   value: puttingSummary.twoPutt,        color: "#6b7280" },
-              { label: "3-Putt+",  value: puttingSummary.threePlusPutt,  color: "#ef4444" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="px-4 py-4 text-center">
-                <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
-                <div className="text-xs text-gray-600 mt-1 font-medium uppercase tracking-wide">{label}</div>
-                <div className="text-xs text-gray-700 mt-0.5 font-mono">
-                  {puttingSummary.total > 0 ? `${((value / puttingSummary.total) * 100).toFixed(0)}%` : "—"}
+          <div className="px-4 pt-2 pb-1">
+            <PuttingDonutChart summary={puttingSummary} />
+          </div>
+          <div className="px-5 pb-4 space-y-1">
+            {PUTT_CATS.map(c => {
+              const value = puttingSummary[c.key];
+              return (
+                <div key={c.key} className="flex items-center gap-1.5 text-xs">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                  <span className="text-gray-500 flex-1">{c.label}</span>
+                  <span className="text-gray-400 font-mono">
+                    {value} ({puttingSummary.total > 0 ? ((value / puttingSummary.total) * 100).toFixed(0) : 0}%)
+                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -80,17 +80,18 @@ function classifyShot(shots: number, par: number): string {
   return "triple";
 }
 
-function parsePuttCount(shotsJson: string): number {
+function parsePuttCount(shotsJson: string): number | null {
   try {
     const arr: string[] = JSON.parse(shotsJson);
+    if (arr.length === 0) return null; // no shot data — skip hole
     return arr.filter(s => s === "AUTO-PUTT").length;
-  } catch { return 0; }
+  } catch { return null; }
 }
 
 function onePuttPct(rows: ShotRow[]): number | null {
-  if (rows.length === 0) return null;
-  const one = rows.filter(r => parsePuttCount(r.shots) === 1).length;
-  return (one / rows.length) * 100;
+  const valid = rows.map(r => parsePuttCount(r.shots)).filter((p): p is number => p !== null);
+  if (valid.length === 0) return null;
+  return (valid.filter(p => p === 1).length / valid.length) * 100;
 }
 
 interface PuttingSummary {
@@ -98,15 +99,17 @@ interface PuttingSummary {
 }
 
 function buildPuttingSummary(rows: ShotRow[]): PuttingSummary {
-  let chipIn = 0, onePutt = 0, twoPutt = 0, threePlus = 0;
+  let chipIn = 0, onePutt = 0, twoPutt = 0, threePlus = 0, total = 0;
   for (const r of rows) {
     const p = parsePuttCount(r.shots);
+    if (p === null) continue; // no shot data for this hole
+    total++;
     if (p === 0) chipIn++;
     else if (p === 1) onePutt++;
     else if (p === 2) twoPutt++;
     else threePlus++;
   }
-  return { chipIn, onePutt, twoPutt, threePlus, total: rows.length };
+  return { chipIn, onePutt, twoPutt, threePlus, total };
 }
 
 function buildDist(shots: ShotRow[]) {
@@ -142,6 +145,35 @@ const STAT_DEFS: StatDef[] = [
   { key: "girProximity", label: "GIR Prox",     fmt: v => `${v.toFixed(1)} ft`,    lowerBetter: true  },
   { key: "onePuttPct",   label: "1-Putt %",     fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false, compute: onePuttPct },
 ];
+
+const PUTT_CATS = [
+  { key: "chipIn",    label: "Chip-In", color: "#fbbf24" },
+  { key: "onePutt",   label: "1-Putt",  color: "#38bdf8" },
+  { key: "twoPutt",   label: "2-Putt",  color: "#6b7280" },
+  { key: "threePlus", label: "3-Putt+", color: "#ef4444" },
+] as const;
+
+function PuttingDonutChart({ summary }: { summary: PuttingSummary }) {
+  if (summary.total === 0) return <div className="text-xs text-gray-600 text-center py-4">No shot data</div>;
+  const data = PUTT_CATS.map(c => ({
+    ...c,
+    value: summary[c.key],
+    pct: summary.total > 0 ? (summary[c.key] / summary.total) * 100 : 0,
+  })).filter(c => c.value > 0);
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="label" cx="50%" cy="50%" innerRadius={32} outerRadius={52} strokeWidth={1} stroke="#111827">
+          {data.map(entry => <Cell key={entry.key} fill={entry.color} />)}
+        </Pie>
+        <Tooltip
+          contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 11 }}
+          formatter={(v, name) => [`${v} (${data.find(d => d.label === name)?.pct.toFixed(0)}%)`, name]}
+        />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
 
 function ScoreDistChart({ data, color }: { data: ReturnType<typeof buildDist>; color: string }) {
   if (data.length === 0) return <div className="text-xs text-gray-600 text-center py-4">No shot data</div>;
@@ -361,27 +393,24 @@ export default function HeadToHeadClient({ tournaments, players, roundStats, sho
             <p className="text-xs text-gray-700 mt-0.5">Computed from GSPro shot data</p>
           </div>
           <div className="grid grid-cols-2 divide-x divide-gray-800">
-            {[
+            {([
               { p: player1, color: color1, s: putting1 },
               { p: player2, color: color2, s: putting2 },
-            ].map(({ p, color, s }) => (
-              <div key={p}>
-                <div className="text-xs font-semibold text-center py-2 border-b border-gray-800/60" style={{ color }}>{p}</div>
-                <div className="grid grid-cols-4 divide-x divide-gray-800/60">
-                  {[
-                    { label: "Chip-In", value: s.chipIn, color: "#fbbf24" },
-                    { label: "1-Putt",  value: s.onePutt, color: "#38bdf8" },
-                    { label: "2-Putt",  value: s.twoPutt, color: "#6b7280" },
-                    { label: "3-Putt+", value: s.threePlus, color: "#ef4444" },
-                  ].map(({ label, value, color: c }) => (
-                    <div key={label} className="px-2 py-3 text-center">
-                      <div className="text-lg font-bold tabular-nums" style={{ color: c }}>{value}</div>
-                      <div className="text-xs text-gray-600 mt-0.5 font-medium uppercase tracking-wide leading-tight">{label}</div>
-                      <div className="text-xs text-gray-700 mt-0.5 font-mono">
-                        {s.total > 0 ? `${((value / s.total) * 100).toFixed(0)}%` : "—"}
+            ] as const).map(({ p, color, s }) => (
+              <div key={p} className="p-4">
+                <div className="text-xs font-semibold mb-2 text-center" style={{ color }}>{p}</div>
+                <PuttingDonutChart summary={s} />
+                <div className="mt-2 space-y-1">
+                  {PUTT_CATS.map(c => {
+                    const val = s[c.key];
+                    return (
+                      <div key={c.key} className="flex items-center gap-1.5 text-xs">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                        <span className="text-gray-500 flex-1">{c.label}</span>
+                        <span className="text-gray-400 font-mono">{val} ({s.total > 0 ? ((val / s.total) * 100).toFixed(0) : 0}%)</span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
