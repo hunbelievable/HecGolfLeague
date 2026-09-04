@@ -393,7 +393,7 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
                     borderRadius: 8,
                     fontSize: 12,
                   }}
-                  formatter={(v: unknown, name: unknown) => [v, name]}
+                  formatter={(v: number | string, name: string) => [v, name]}
                 />
               </PieChart>
             </ResponsiveContainer>
