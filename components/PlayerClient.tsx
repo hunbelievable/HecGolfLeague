@@ -49,6 +49,7 @@ interface ShotRow {
   holeNumber: number;
   par: number;
   shotsCount: number;
+  shots: string;
 }
 
 interface RoundStat {
@@ -105,6 +106,35 @@ function buildScoreDistribution(shotData: ShotRow[]) {
   return SCORE_CATS.map(c => ({ ...c, value: counts[c.key] })).filter(c => c.value > 0);
 }
 
+// ── Putting helpers ───────────────────────────────────────────────────────
+
+function parsePuttCount(shotsJson: string): number {
+  try {
+    const arr: string[] = JSON.parse(shotsJson);
+    return arr.filter(s => s === "AUTO-PUTT").length;
+  } catch { return 0; }
+}
+
+interface PuttingSummary {
+  chipIn: number;
+  onePutt: number;
+  twoPutt: number;
+  threePlusPutt: number;
+  total: number;
+}
+
+function buildPuttingSummary(shotData: ShotRow[]): PuttingSummary {
+  let chipIn = 0, onePutt = 0, twoPutt = 0, threePlusPutt = 0;
+  for (const row of shotData) {
+    const p = parsePuttCount(row.shots);
+    if (p === 0) chipIn++;
+    else if (p === 1) onePutt++;
+    else if (p === 2) twoPutt++;
+    else threePlusPutt++;
+  }
+  return { chipIn, onePutt, twoPutt, threePlusPutt, total: shotData.length };
+}
+
 // ── Round stats helpers ────────────────────────────────────────────────────
 
 const STAT_LABELS: { key: keyof RoundStat; label: string; fmt: (v: number) => string }[] = [
@@ -114,8 +144,6 @@ const STAT_LABELS: { key: keyof RoundStat; label: string; fmt: (v: number) => st
   { key: "gir",           label: "GIR %",         fmt: v => `${v.toFixed(0)}%` },
   { key: "sandSave",      label: "Sand Save %",   fmt: v => `${v.toFixed(0)}%` },
   { key: "scrambling",    label: "Scrambling %",  fmt: v => `${v.toFixed(0)}%` },
-  { key: "puttsPerRound", label: "Putts/Rnd",     fmt: v => v.toFixed(1) },
-  { key: "puttsPerGir",   label: "Putts/GIR",     fmt: v => v.toFixed(2) },
   { key: "girProximity",  label: "GIR Prox",      fmt: v => `${v.toFixed(1)} ft` },
 ];
 
@@ -189,6 +217,7 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
   );
   const seasonShots = shotData.filter(s => seasonTournamentIds.has(s.tournamentId));
   const scoreDist = buildScoreDistribution(seasonShots);
+  const puttingSummary = buildPuttingSummary(seasonShots);
 
   // Round stats for active season
   const seasonRoundStats = roundStats.filter(s => s.tournament.season === activeSeason);
@@ -419,6 +448,32 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
                 {scoreDist.reduce((s, e) => s + e.value, 0)} holes total
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Putting Breakdown */}
+      {puttingSummary.total > 0 && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 mb-6 overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-800">
+            <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Putting</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Computed from GSPro shot data · {puttingSummary.total} holes</p>
+          </div>
+          <div className="grid grid-cols-4 divide-x divide-gray-800">
+            {[
+              { label: "Chip-In",  value: puttingSummary.chipIn,         color: "#fbbf24" },
+              { label: "1-Putt",   value: puttingSummary.onePutt,        color: "#38bdf8" },
+              { label: "2-Putt",   value: puttingSummary.twoPutt,        color: "#6b7280" },
+              { label: "3-Putt+",  value: puttingSummary.threePlusPutt,  color: "#ef4444" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="px-4 py-4 text-center">
+                <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium uppercase tracking-wide">{label}</div>
+                <div className="text-xs text-gray-700 mt-0.5 font-mono">
+                  {puttingSummary.total > 0 ? `${((value / puttingSummary.total) * 100).toFixed(0)}%` : "—"}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

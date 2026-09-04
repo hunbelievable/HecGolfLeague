@@ -20,7 +20,7 @@ async function getPlayerData(id: string) {
     }),
     prisma.shotData.findMany({
       where: { playerId: id },
-      select: { tournamentId: true, holeNumber: true, par: true, shotsCount: true },
+      select: { tournamentId: true, holeNumber: true, par: true, shotsCount: true, shots: true },
     }),
     prisma.playerRoundStats.findMany({
       where: { playerId: id },

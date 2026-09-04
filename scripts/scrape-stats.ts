@@ -62,7 +62,10 @@ function parseStatBody(text: string): Map<string, number> {
     if (!isPos) continue;
 
     const player = normalizePlayer(lines[i + 1]);
-    const numMatch = lines[i + 2].match(/([\d.]+)/);
+    const valueLine = lines[i + 2];
+    // Reject if the "value" line is itself a position string (player had no stat value)
+    if (/^T?\d+$/.test(valueLine)) continue;
+    const numMatch = valueLine.match(/([\d.]+)/);
     if (player && numMatch) {
       result.set(player, parseFloat(numMatch[1]));
       i += 2;
@@ -134,12 +137,17 @@ async function scrapeStats(page: Page, tournamentId: number): Promise<number> {
     }
   }
 
-  // Upsert all player stats
+  // Upsert all player stats — explicitly null out any column not present in this run
+  const nullStats = {
+    scoringAvg: null, drivingDist: null, fir: null, gir: null,
+    sandSave: null, scrambling: null, puttsPerRound: null, puttsPerGir: null, girProximity: null,
+  };
   for (const [playerId, stats] of playerStats) {
+    const full = { ...nullStats, ...stats };
     await prisma.playerRoundStats.upsert({
       where: { tournamentId_playerId: { tournamentId, playerId } },
-      update: stats,
-      create: { tournamentId, playerId, ...stats },
+      update: full,
+      create: { tournamentId, playerId, ...full },
     });
   }
 
