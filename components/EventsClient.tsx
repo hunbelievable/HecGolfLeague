@@ -108,21 +108,19 @@ function Scorecard({ tournamentId }: { tournamentId: number }) {
           {/* Long Drive row */}
           {data.longDriveWinners?.some(ld => ld !== null) && (
             <tr className="bg-gray-900/40 border-b border-gray-800">
-              <td className="px-3 py-1.5 text-yellow-600/70 font-semibold uppercase tracking-widest text-[10px] sticky left-0 bg-gray-900/40 z-10 whitespace-nowrap">
+              <td className="px-3 py-1.5 text-yellow-600/60 font-semibold uppercase tracking-widest text-[10px] sticky left-0 bg-gray-900/40 z-10 whitespace-nowrap">
                 LD
               </td>
               {data.longDriveWinners.map((ld, i) => {
                 const c = ld ? PLAYER_COLORS[ld.playerId] ?? "#fbbf24" : undefined;
                 return (
-                  <td key={i} className="text-center px-1 py-1.5">
+                  <td key={i} className="text-center px-2 py-2">
                     {ld ? (
                       <span
-                        className="inline-block text-[9px] font-bold leading-none px-0.5 rounded"
-                        style={{ color: c }}
+                        className="inline-block w-2 h-2 rounded-full cursor-default"
+                        style={{ backgroundColor: c }}
                         title={`${ld.playerId} – ${ld.distanceYds.toFixed(0)} yds`}
-                      >
-                        {ld.playerId.substring(0, 3).toUpperCase()}
-                      </span>
+                      />
                     ) : null}
                   </td>
                 );
