@@ -33,25 +33,18 @@ function normalizePlayer(name: string): string | null {
 }
 
 // Known stat endpoint names → PlayerRoundStats column
+// API names discovered by probing VIEW ALL network requests on STATISTICS tab
 const STAT_ENDPOINTS: { name: string; col: string }[] = [
   { name: "scoringAverage",  col: "scoringAvg" },
   { name: "drivingDistance", col: "drivingDist" },
-  { name: "fir",             col: "fir" },
-  { name: "gir",             col: "gir" },
+  { name: "drivingAccuracy", col: "fir" },
+  { name: "greenAccuracy",   col: "gir" },
   { name: "sandSave",        col: "sandSave" },
   { name: "scrambling",      col: "scrambling" },
   { name: "puttsPerRound",   col: "puttsPerRound" },
-  { name: "puttsPerGir",     col: "puttsPerGir" },
-  { name: "girProximity",    col: "girProximity" },
+  { name: "puttsPerGIR",     col: "puttsPerGir" },
+  { name: "girProx",         col: "girProximity" },
 ];
-
-// Fallback stat names to try if the primary name 404s
-const STAT_ALIASES: Record<string, string[]> = {
-  scoringAverage:  ["scoringAvg", "avgScore"],
-  drivingDistance: ["drivingDist", "avgDrive"],
-  puttsPerRound:   ["avgPutts", "puttingAvg"],
-  girProximity:    ["approach"],
-};
 
 // Parse POS / PLAYER / VALUE lines returned by each stat endpoint.
 // Format (text body): each player appears as three consecutive lines:
@@ -63,14 +56,16 @@ function parseStatBody(text: string): Map<string, number> {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
   for (let i = 0; i + 2 < lines.length; i++) {
-    const pos = parseInt(lines[i]);
-    if (isNaN(pos) || pos <= 0) continue;
+    // Accept numeric position (1, 2, 3) or tied position (T1, T2, T5)
+    const posStr = lines[i];
+    const isPos = /^T?\d+$/.test(posStr);
+    if (!isPos) continue;
 
     const player = normalizePlayer(lines[i + 1]);
     const numMatch = lines[i + 2].match(/([\d.]+)/);
     if (player && numMatch) {
       result.set(player, parseFloat(numMatch[1]));
-      i += 2; // skip the player and value lines
+      i += 2;
     }
   }
 
@@ -118,15 +113,6 @@ async function scrapeStats(page: Page, tournamentId: number): Promise<number> {
   for (const { name, col } of STAT_ENDPOINTS) {
     const url = `${BASE_URL}/sgt-api/leaderboard/${tournamentId}/stats/${name}`;
     let body = await fetchWithSession(page, url);
-
-    // Try aliases if primary name 404s
-    if (body === null && STAT_ALIASES[name]) {
-      for (const alias of STAT_ALIASES[name]) {
-        const aliasUrl = `${BASE_URL}/sgt-api/leaderboard/${tournamentId}/stats/${alias}`;
-        body = await fetchWithSession(page, aliasUrl);
-        if (body !== null) break;
-      }
-    }
 
     if (body === null) {
       console.log(`    ${name}: no data`);
