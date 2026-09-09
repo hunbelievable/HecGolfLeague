@@ -20,12 +20,12 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 tournament IDs — add each week as the season progresses
-const TOURNAMENT_IDS = [67662];
+const TOURNAMENT_IDS = [67662, 71398];
 
 // Known player IDs — used for case-insensitive name normalisation
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
-  "PikeMatrick", "FavHoliday27", "HuskerRC13", "2FlumsUp",
+  "PikeMatrick", "FavHoliday27", "HuskerRC13", "2FlumsUp", "cburesh",
 ];
 
 function normalizePlayer(name: string): string | null {
@@ -115,10 +115,11 @@ async function main() {
   let browser: Awaited<ReturnType<typeof chromium.launchPersistentContext>> | Awaited<ReturnType<typeof chromium.launch>>;
   let page: Page;
 
+  const chromeExe = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   try {
     const ctx = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
-      channel: "chrome",
+      executablePath: chromeExe,
       args: ["--no-first-run", "--no-default-browser-check"],
     });
     browser = ctx;

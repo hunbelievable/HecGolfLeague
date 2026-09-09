@@ -31,12 +31,14 @@ const PLAYER_SGT_IDS: Record<string, number> = {
   FavHoliday27:   47402,
   HuskerRC13:     47232,
   "2FlumsUp":     47263,
+  cburesh:        47829,
 };
 
 // Season 1: 40579 = Week 1 (Cypress Point Club) — manually entered, no shot data on portal
 const TOURNAMENT_IDS = [
   43157, 44078, 45169, 45853, 47001, 47836, 48674, 49707, 50643, 52153, 52918, // S1
   67662, // S2 Week 1 Kauri Cliffs
+  71398, // S2 Week 2 Gilded Dunes
 ];
 
 interface HoleData {

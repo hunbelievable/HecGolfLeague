@@ -29,7 +29,7 @@ const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 (Fall 2026) — Tour 3337
 const TOUR_ID = 3337;
-const TOURNAMENT_IDS = [67662];
+const TOURNAMENT_IDS = [67662, 71398];
 
 interface LeaderboardEntry {
   position: number;
@@ -75,10 +75,11 @@ async function main() {
   let browser;
   let useHeadless = false;
 
+  const chromeExe = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   try {
     browser = await chromium.launchPersistentContext(userDataDir, {
-      headless: false,
-      channel: "chrome",
+      headless: true,
+      executablePath: chromeExe,
       args: ["--no-first-run", "--no-default-browser-check"],
     });
   } catch {

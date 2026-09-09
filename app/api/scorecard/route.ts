@@ -5,6 +5,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const tournamentId = parseInt(searchParams.get("tournamentId") ?? "");
   if (isNaN(tournamentId)) return NextResponse.json({ error: "Missing tournamentId" }, { status: 400 });
+  const type = searchParams.get("type") === "net" ? "net" : "gross";
 
   const [shotRows, results, longDrives] = await Promise.all([
     prisma.shotData.findMany({
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
       orderBy: [{ playerId: "asc" }, { holeNumber: "asc" }],
     }),
     prisma.result.findMany({
-      where: { tournamentId, type: "gross" },
+      where: { tournamentId, type },
       orderBy: { position: "asc" },
     }),
     prisma.longDrive.findMany({
@@ -42,9 +43,19 @@ export async function GET(req: NextRequest) {
   const remaining = Array.from(byPlayer.keys()).filter(id => !orderedIds.includes(id)).sort();
   const allPlayerIds = [...orderedIds, ...remaining];
 
+  // Build result lookup for score/position display
+  const resultByPlayer = new Map(results.map(r => [r.playerId, r]));
+  // Also fetch gross results for reference when in net mode
+  const grossResults = type === "net"
+    ? await prisma.result.findMany({ where: { tournamentId, type: "gross" }, orderBy: { position: "asc" } })
+    : results;
+  const grossByPlayer = new Map(grossResults.map(r => [r.playerId, r]));
+
   const players = allPlayerIds.map(id => ({
     id,
     scores: holes.map(h => byPlayer.get(id)?.get(h) ?? null),
+    resultScore: resultByPlayer.get(id)?.score ?? null,
+    grossScore: grossByPlayer.get(id)?.score ?? null,
   }));
 
   // Long drive: per hole, find the player with the max distance

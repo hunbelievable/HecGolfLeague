@@ -27,7 +27,7 @@ interface Tournament {
 interface ScorecardData {
   holes: number[];
   pars: number[];
-  players: { id: string; scores: (number | null)[] }[];
+  players: { id: string; scores: (number | null)[]; resultScore: string | null; grossScore: string | null }[];
   longDriveWinners: ({ playerId: string; distanceYds: number } | null)[];
 }
 
@@ -47,16 +47,17 @@ function scoreBg(score: number | null, par: number): string {
   return "text-red-500 font-bold";
 }
 
-function Scorecard({ tournamentId }: { tournamentId: number }) {
+function Scorecard({ tournamentId, type }: { tournamentId: number; type: "gross" | "net" }) {
   const [data, setData] = useState<ScorecardData | null>(null);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadedType, setLoadedType] = useState<string | null>(null);
 
-  if (!loaded && !loading) {
+  if ((!loaded || loadedType !== type) && !loading) {
     setLoading(true);
-    fetch(`/api/scorecard?tournamentId=${tournamentId}`)
+    fetch(`/api/scorecard?tournamentId=${tournamentId}&type=${type}`)
       .then(r => r.json())
-      .then((d: ScorecardData) => { setData(d); setLoaded(true); setLoading(false); })
+      .then((d: ScorecardData) => { setData(d); setLoaded(true); setLoadedType(type); setLoading(false); })
       .catch(() => setLoading(false));
   }
 
@@ -109,10 +110,24 @@ function Scorecard({ tournamentId }: { tournamentId: number }) {
         <tbody>
           {data.players.map((player, pi) => {
             const color = PLAYER_COLORS[player.id] ?? "#9ca3af";
-            const total = player.scores.reduce<number>((s, sc) => s + (sc ?? 0), 0);
+            const grossTotal = player.scores.reduce<number>((s, sc) => s + (sc ?? 0), 0);
             const hasAll = player.scores.every(sc => sc !== null);
-            const diff = hasAll ? total - totalPar : null;
-            const diffStr = diff === null ? "—" : diff === 0 ? "E" : diff > 0 ? `+${diff}` : `${diff}`;
+
+            // In net mode use the stored net score string; in gross mode compute from shots
+            const displayScore = type === "net" ? player.resultScore : null;
+            const scoreNum = displayScore
+              ? displayScore === "E" ? 0 : parseInt(displayScore)
+              : hasAll ? grossTotal - totalPar : null;
+            const diffStr = scoreNum === null ? "—" : scoreNum === 0 ? "E" : scoreNum > 0 ? `+${scoreNum}` : `${scoreNum}`;
+
+            // Net total strokes = grossTotal - handicap (derived from result score difference)
+            const netTotal = type === "net" && player.grossScore && player.resultScore && hasAll
+              ? (() => {
+                  const g = player.grossScore === "E" ? 0 : parseInt(player.grossScore);
+                  const n = player.resultScore === "E" ? 0 : parseInt(player.resultScore);
+                  return grossTotal - (g - n);
+                })()
+              : null;
 
             return (
               <tr
@@ -130,6 +145,12 @@ function Scorecard({ tournamentId }: { tournamentId: number }) {
                     <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                     <span className="font-semibold" style={{ color }}>{player.id}</span>
                   </Link>
+                  {type === "net" && player.grossScore && player.resultScore && (() => {
+                    const g = player.grossScore === "E" ? 0 : parseInt(player.grossScore);
+                    const n = player.resultScore === "E" ? 0 : parseInt(player.resultScore);
+                    const hcp = g - n;
+                    return hcp > 0 ? <span className="text-gray-600 text-[10px] ml-1">hcp -{hcp}</span> : null;
+                  })()}
                 </td>
                 {player.scores.map((sc, i) => (
                   <td key={i} className={`text-center px-2 py-2 font-mono ${scoreBg(sc, data.pars[i])}`}>
@@ -137,12 +158,12 @@ function Scorecard({ tournamentId }: { tournamentId: number }) {
                   </td>
                 ))}
                 <td className="text-center px-3 py-2 font-mono text-gray-300 font-semibold border-l border-gray-700/60">
-                  {hasAll ? total : "—"}
+                  {type === "net" && netTotal !== null ? netTotal : hasAll ? grossTotal : "—"}
                 </td>
                 <td className={`text-center px-3 py-2 font-mono font-semibold ${
-                  diff === null ? "text-gray-700" :
-                  diff < 0 ? "text-sky-400" :
-                  diff === 0 ? "text-gray-400" : "text-orange-400"
+                  scoreNum === null ? "text-gray-700" :
+                  scoreNum < 0 ? "text-sky-400" :
+                  scoreNum === 0 ? "text-gray-400" : "text-orange-400"
                 }`}>
                   {diffStr}
                 </td>
@@ -349,7 +370,7 @@ export default function EventsClient({ events, season }: Props) {
                       </tbody>
                     </table>
                   ) : (
-                    <Scorecard tournamentId={event.id} />
+                    <Scorecard tournamentId={event.id} type={tab} />
                   )}
                 </div>
               )}

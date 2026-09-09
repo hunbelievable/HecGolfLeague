@@ -20,11 +20,11 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 
 const BASE_URL = "https://simulatorgolftour.com";
 
-const TOURNAMENT_IDS = [67662];
+const TOURNAMENT_IDS = [67662, 71398];
 
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
-  "PikeMatrick", "FavHoliday27", "HuskerRC13", "2FlumsUp",
+  "PikeMatrick", "FavHoliday27", "HuskerRC13", "2FlumsUp", "cburesh",
 ];
 
 function normalizePlayer(name: string): string | null {
@@ -268,10 +268,11 @@ async function main() {
   let browser: any;
   let page: Page;
 
+  const chromeExe = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
   try {
     const ctx = await chromium.launchPersistentContext(userDataDir, {
       headless: true,
-      channel: "chrome",
+      executablePath: chromeExe,
       args: ["--no-first-run", "--no-default-browser-check"],
     });
     browser = ctx;
