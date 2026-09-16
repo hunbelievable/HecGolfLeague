@@ -29,7 +29,7 @@ const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 (Fall 2026) — Tour 3337
 const TOUR_ID = 3337;
-const TOURNAMENT_IDS = [67662, 71398];
+const TOURNAMENT_IDS = [67662, 71398, 72377];
 
 interface LeaderboardEntry {
   position: number;

@@ -278,7 +278,8 @@ export default function EventsClient({ events, season }: Props) {
                   </div>
                   <div className="flex items-center gap-3 mt-0.5">
                     <span className="text-xs text-gray-700">
-                      {new Date(event.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      {/* Parse as local time — a bare "YYYY-MM-DD" is read as UTC and renders a day early */}
+                      {new Date(`${event.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </span>
                     {winner && (
                       <span className="text-xs text-gray-500">
