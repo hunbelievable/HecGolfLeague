@@ -40,6 +40,7 @@ const TOURNAMENT_IDS = [
   67662, // S2 Week 1 Kauri Cliffs
   71398, // S2 Week 2 Gilded Dunes
   72377, // S2 Week 3 Paynes Valley
+  74230, // S2 Week 4 The Wilds
 ];
 
 interface HoleData {

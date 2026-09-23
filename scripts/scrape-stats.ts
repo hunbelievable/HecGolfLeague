@@ -20,7 +20,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 
 const BASE_URL = "https://simulatorgolftour.com";
 
-const TOURNAMENT_IDS = [67662, 71398, 72377];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230];
 
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",

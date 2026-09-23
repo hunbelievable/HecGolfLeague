@@ -20,7 +20,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 tournament IDs — add each week as the season progresses
-const TOURNAMENT_IDS = [67662, 71398, 72377];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230];
 
 // Known player IDs — used for case-insensitive name normalisation
 const KNOWN_PLAYERS = [
