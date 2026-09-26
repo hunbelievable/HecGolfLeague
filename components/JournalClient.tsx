@@ -3,9 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList,
+  ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList, ReferenceLine,
 } from "recharts";
-import { PLAYER_COLORS } from "@/lib/types";
 import { HCP_GROUPS, type JournalEvent, type GroupStat } from "@/lib/courseJournal";
 import { courseSlug, fmtOver, nineLabel } from "@/lib/courseFormat";
 
@@ -22,14 +21,12 @@ const shortDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 
 function GroupCell({ g, exp, expLabel }: { g: GroupStat | null; exp?: number | null; expLabel?: string }) {
-  if (!g) return <td className="px-3 py-2.5 text-center text-gray-700">—</td>;
+  if (!g) return <td className="px-2 py-2.5 text-center text-gray-700">—</td>;
   return (
-    <td className="px-3 py-2.5 text-center">
+    <td className="px-2 py-2.5 text-center">
       <div className="font-mono text-gray-200">{fmtOver(g.avg9)}</div>
-      <div className="text-[10px] text-gray-600">
-        n={g.n}
-        {exp != null && <> · {expLabel} {fmtOver(exp)}</>}
-      </div>
+      <div className="text-[10px] text-gray-600">n={g.n}</div>
+      {exp != null && <div className="text-[10px] text-gray-600">{expLabel} {fmtOver(exp)}</div>}
     </td>
   );
 }
@@ -95,64 +92,195 @@ function NotesEditor({ courseName, initial, editable }: {
   );
 }
 
-function SlopeChart({ events }: { events: JournalEvent[] }) {
-  const points = events
-    .filter(e => e.courseSetup?.slope != null && e.stats.gap9 != null)
-    .map(e => ({
-      slope: e.courseSetup!.slope!,
-      gap: e.stats.gap9!,
-      label: e.courseSetup!.courseName,
-      detail: `S${e.season} ${e.week} · ${e.courseSetup!.tees} tees`,
-    }));
+interface ScatterPoint {
+  x: number;
+  y: number;
+  label: string;
+  detail: string;
+}
+
+type LabelPos = "top" | "bottom" | "right" | "left";
+
+// Axis with ~5 round-number ticks
+function niceAxis(values: number[], includeZero: boolean, minStep = 1) {
+  let lo = Math.min(...values, ...(includeZero ? [0] : []));
+  let hi = Math.max(...values, ...(includeZero ? [0] : []));
+  const range = hi - lo || 1;
+  const step = Math.max(minStep, range <= 4 ? 1 : range <= 10 ? 2 : 5);
+  lo = Math.floor((lo - step / 2) / step) * step;
+  hi = Math.ceil((hi + step / 2) / step) * step;
+  const ticks = Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, i) => lo + i * step);
+  return { domain: [lo, hi] as [number, number], ticks };
+}
+
+const MARGIN = { top: 16, right: 24, bottom: 28, left: 4 };
+const Y_AXIS_W = 40;
+const CHAR_W = 6.2;   // ~11px system font
+const LABEL_H = 13;
+const DOT_R = 6;
+
+// Greedy label placement in pixel space: each label takes the first side of its dot
+// (above, below, right, left) that doesn't cover another label or dot. Labels with
+// no free side (narrow screens) are hidden; the tooltip still names the dot.
+function layoutLabels(
+  points: ScatterPoint[], width: number, height: number,
+  xDom: [number, number], yDom: [number, number],
+): (LabelPos | null)[] {
+  const pw = width - MARGIN.left - MARGIN.right - Y_AXIS_W;
+  const ph = height - MARGIN.top - MARGIN.bottom;
+  const px = (x: number) => ((x - xDom[0]) / (xDom[1] - xDom[0])) * pw;
+  const py = (y: number) => ((yDom[1] - y) / (yDom[1] - yDom[0])) * ph;
+  type Box = { x0: number; y0: number; x1: number; y1: number };
+  const hit = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  const dots: Box[] = points.map(p => ({ x0: px(p.x) - DOT_R, y0: py(p.y) - DOT_R, x1: px(p.x) + DOT_R, y1: py(p.y) + DOT_R }));
+  const placed: Box[] = [];
+  const result: (LabelPos | null)[] = new Array(points.length).fill(null);
+
+  const order = points.map((_, i) => i).sort((a, b) => points[b].y - points[a].y);
+  for (const i of order) {
+    const cx = px(points[i].x), cy = py(points[i].y), w = points[i].label.length * CHAR_W;
+    const boxes: Record<LabelPos, Box> = {
+      top:    { x0: cx - w / 2, y0: cy - 8 - LABEL_H, x1: cx + w / 2, y1: cy - 8 },
+      bottom: { x0: cx - w / 2, y0: cy + 8, x1: cx + w / 2, y1: cy + 8 + LABEL_H },
+      right:  { x0: cx + 9, y0: cy - LABEL_H / 2, x1: cx + 9 + w, y1: cy + LABEL_H / 2 },
+      left:   { x0: cx - 9 - w, y0: cy - LABEL_H / 2, x1: cx - 9, y1: cy + LABEL_H / 2 },
+    };
+    const fits = (pos: LabelPos) => {
+      const b = boxes[pos];
+      return b.x0 >= 0 && b.x1 <= pw && b.y0 >= 0 && b.y1 <= ph &&
+        !placed.some(o => hit(o, b)) && !dots.some((d, j) => j !== i && hit(d, b));
+    };
+    const pos = (["top", "bottom", "right", "left"] as const).find(fits);
+    if (!pos) continue;
+    result[i] = pos;
+    placed.push(boxes[pos]);
+  }
+  return result;
+}
+
+function LabeledScatter({ points, xLabel, yLabel, yFormat, refY, refYLabel, emptyText, height = 288 }: {
+  points: ScatterPoint[];
+  xLabel: string;
+  yLabel: string;
+  yFormat: (v: number) => string;
+  refY?: number;
+  refYLabel?: string;
+  emptyText: string;
+  height?: number;
+}) {
+  const [width, setWidth] = useState(0);
+  const x = niceAxis(points.map(p => p.x), false, 5);
+  const y = niceAxis(points.map(p => p.y), refY !== undefined);
+  const labelPos = useMemo(
+    () => (width ? layoutLabels(points, width, height, x.domain, y.domain) : points.map(() => "top" as LabelPos)),
+    [points, width, height, x.domain[0], x.domain[1], y.domain[0], y.domain[1]] // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   if (points.length < 2) {
-    return (
-      <p className="text-sm text-gray-600 px-4 py-6">
-        Needs at least two events with both low (≤5) and high (13+) handicap players.
-      </p>
-    );
+    return <p className="text-sm text-gray-600 px-4 py-6">{emptyText}</p>;
   }
 
-  const yMax = Math.ceil((Math.max(...points.map(p => p.gap)) + 1) / 5) * 5;
-  const yTicks = Array.from({ length: yMax / 5 + 1 }, (_, i) => i * 5);
-
   return (
-    <div className="h-64 sm:h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 16, right: 24, bottom: 28, left: 4 }}>
+    <div style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%" onResize={w => setWidth(w)}>
+        <ScatterChart margin={MARGIN}>
           <CartesianGrid stroke="#1f2937" strokeDasharray="0" />
           <XAxis
-            type="number" dataKey="slope" name="Slope"
-            domain={["dataMin - 5", "dataMax + 5"]} allowDecimals={false}
+            type="number" dataKey="x" name={xLabel} domain={x.domain} ticks={x.ticks}
             tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={{ stroke: "#374151" }} tickLine={false}
-            label={{ value: "Slope of tees played", position: "insideBottom", offset: -16, fill: "#6b7280", fontSize: 11 }}
+            label={{ value: xLabel, position: "insideBottom", offset: -16, fill: "#6b7280", fontSize: 11 }}
           />
           <YAxis
-            type="number" dataKey="gap" name="Gap" domain={[0, yMax]} ticks={yTicks}
-            tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false} width={36}
-            label={{ value: "High − Low per 9", angle: -90, position: "insideLeft", offset: 10, fill: "#6b7280", fontSize: 11, dy: 50 }}
+            type="number" dataKey="y" name={yLabel} domain={y.domain} ticks={y.ticks}
+            tickFormatter={yFormat}
+            tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false} width={Y_AXIS_W}
+            label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 10, fill: "#6b7280", fontSize: 11, dy: 60 }}
           />
+          {refY !== undefined && (
+            <ReferenceLine
+              y={refY} stroke="#4b5563" strokeDasharray="4 4"
+              label={{ value: refYLabel, position: "insideBottomRight", fill: "#6b7280", fontSize: 10 }}
+            />
+          )}
           <Tooltip
             cursor={false}
             content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
-              const p = payload[0].payload as (typeof points)[number];
+              const p = payload[0].payload as ScatterPoint;
               return (
                 <div className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs shadow-xl">
                   <div className="font-semibold text-white">{p.label}</div>
                   <div className="text-gray-500 mb-1">{p.detail}</div>
-                  <div className="text-gray-300">Slope <b>{p.slope}</b> · gap <b>{p.gap.toFixed(1)}</b> strokes</div>
+                  <div className="text-gray-300">{xLabel} <b>{p.x}</b> · {yLabel} <b>{yFormat(p.y)}</b></div>
                 </div>
               );
             }}
           />
           <Scatter data={points} fill="#22c55e" stroke="#111827" strokeWidth={2} isAnimationActive={false}>
-            <LabelList dataKey="label" position="top" offset={10} style={{ fill: "#9ca3af", fontSize: 11 }} />
+            <LabelList
+              dataKey="label"
+              content={(props) => {
+                const { x: cx, y: cy, value, index } = props as { x: number; y: number; value: string; index: number };
+                const pos = labelPos[index];
+                if (!pos) return null;
+                const at: { x: number; y: number; anchor: "middle" | "start" | "end" } = {
+                  top:    { x: cx, y: cy - 10, anchor: "middle" as const },
+                  bottom: { x: cx, y: cy + 19, anchor: "middle" as const },
+                  right:  { x: cx + 9, y: cy + 4, anchor: "start" as const },
+                  left:   { x: cx - 9, y: cy + 4, anchor: "end" as const },
+                }[pos];
+                return (
+                  <text x={at.x} y={at.y} textAnchor={at.anchor} fill="#9ca3af" fontSize={11}>
+                    {value}
+                  </text>
+                );
+              }}
+            />
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
     </div>
   );
+}
+
+const shortName = (name: string) =>
+  name === "National Golf Links of America" ? "NGLA"
+    : name.replace(/^DPC /, "").replace(/ (Golf Club|Club)$/, "").replace(/ Club-Red Course$/, " Red");
+
+// One dot per course + tees played: how hard for scratch (rating vs par) and how much harder for bogey (slope)
+function courseMapPoints(events: JournalEvent[]): ScatterPoint[] {
+  const seen = new Map<string, { e: JournalEvent; rounds: string[] }>();
+  for (const e of events) {
+    const cs = e.courseSetup;
+    if (cs?.slope == null || cs.rating == null || cs.coursePar == null) continue;
+    const key = `${cs.courseName}|${cs.tees}`;
+    const entry = seen.get(key) ?? { e, rounds: [] };
+    entry.rounds.push(`S${e.season} ${e.week}`);
+    seen.set(key, entry);
+  }
+  const multiTee = new Set(
+    [...seen.keys()].map(k => k.split("|")[0]).filter((n, i, all) => all.indexOf(n) !== i)
+  );
+  return [...seen.values()].map(({ e, rounds }) => {
+      const cs = e.courseSetup!;
+      return {
+        x: cs.slope!,
+        y: Math.round((cs.rating! - cs.coursePar!) * 10) / 10,
+        label: shortName(cs.courseName) + (multiTee.has(cs.courseName) ? ` (${cs.tees})` : ""),
+        detail: `${cs.tees} tees · rating ${cs.rating} / par ${cs.coursePar} · ${rounds.join(", ")}`,
+      };
+    });
+}
+
+function netGapPoints(events: JournalEvent[]): ScatterPoint[] {
+  return events
+      .filter(e => e.courseSetup?.slope != null && e.stats.netGap9 != null)
+      .map(e => ({
+        x: e.courseSetup!.slope!,
+        y: e.stats.netGap9!,
+        label: shortName(e.courseSetup!.courseName),
+        detail: `S${e.season} ${e.week} · ${e.courseSetup!.tees} tees · gross gap ${e.stats.gap9?.toFixed(1) ?? "—"}`,
+      }));
 }
 
 export default function JournalClient({ events, notes, editable }: Props) {
@@ -203,19 +331,42 @@ export default function JournalClient({ events, notes, editable }: Props) {
         <div className="h-px bg-gradient-to-r from-green-600/40 via-green-600/10 to-transparent" />
       </div>
 
-      {/* Slope vs handicap gap */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900 mb-6 overflow-hidden">
-        <div className="px-4 pt-4 pb-2">
-          <h2 className="text-sm font-semibold text-white">Does slope predict the handicap gap?</h2>
-          <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-            Slope is meant to measure how much harder a course plays for a bogey golfer than for scratch.
-            Each dot is one round: the slope of the tees played against how many more strokes per 9 the
-            high group (13+) took than the low group (≤5). Season 1 had no high-handicap players, so its
-            rounds don&apos;t appear here.
-          </p>
-        </div>
-        <SlopeChart events={visible} />
-      </section>
+      <div className="grid gap-4 mb-6">
+        <section className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+          <div className="px-4 pt-4 pb-2">
+            <h2 className="text-sm font-semibold text-white">Where the courses sit</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              One dot per course and tees played. <b className="text-gray-400">Up</b> is harder for everyone
+              (rating vs par, over 18); <b className="text-gray-400">right</b> is harder on high handicaps
+              relative to low (slope, 113 is average). Bottom-left is easy and fair.
+            </p>
+          </div>
+          <LabeledScatter
+            points={courseMapPoints(visible)}
+            xLabel="Slope" yLabel="Rating − par" yFormat={v => fmtOver(v)}
+            refY={0} refYLabel="rating = par" height={360}
+            emptyText="No course ratings recorded yet."
+          />
+        </section>
+
+        <section className="rounded-xl border border-gray-800 bg-gray-900 overflow-hidden">
+          <div className="px-4 pt-4 pb-2">
+            <h2 className="text-sm font-semibold text-white">Did handicaps level the field?</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              How many more <b className="text-gray-400">net</b> strokes per 9 the high group (13+) took than the
+              low group (≤5). On the dashed line, handicap strokes evened things out; above it, the course cost
+              high handicaps more than their strokes gave back. Week 1 of each season (all handicaps 0) and
+              Season 1 (no high handicaps) aren&apos;t shown.
+            </p>
+          </div>
+          <LabeledScatter
+            points={netGapPoints(visible)}
+            xLabel="Slope" yLabel="Net gap per 9" yFormat={v => v.toFixed(0)}
+            refY={0} refYLabel="even"
+            emptyText="Needs at least two rounds with handicaps set and both low and high players."
+          />
+        </section>
+      </div>
 
       {/* How to read the tables */}
       <div className="text-[11px] text-gray-500 mb-4 leading-relaxed">
@@ -225,7 +376,10 @@ export default function JournalClient({ events, notes, editable }: Props) {
           <span key={g.key}>{i > 0 && ", "}{g.label} {g.range}</span>
         ))}.{" "}
         <b className="text-gray-400">scr</b> is what the course rating says a scratch golfer should shoot;{" "}
-        <b className="text-gray-400">bgy</b> is the bogey golfer (~20 index), from rating + slope ÷ 5.381.
+        <b className="text-gray-400">bgy</b> is the bogey golfer (~20 index), from rating + slope ÷ 5.381.{" "}
+        <b className="text-gray-400">Net vs rtg</b> is the field&apos;s average net score per 9 minus the scratch expectation
+        (positive = played harder than rated); <b className="text-gray-400">Net gap</b> is high minus low in net strokes
+        (0 = handicaps evened it out). Both are blank in Week 1, before anyone has a handicap.
       </div>
 
       <div className="space-y-4">
@@ -260,19 +414,19 @@ export default function JournalClient({ events, notes, editable }: Props) {
                 <table className="w-full text-sm min-w-max">
                   <thead>
                     <tr className="bg-gray-900/80 text-gray-500 text-[10px] uppercase tracking-widest border-b border-gray-800">
-                      <th className="text-left px-4 py-2 font-semibold">Round</th>
-                      <th className="text-left px-3 py-2 font-semibold">Nine</th>
-                      <th className="text-left px-3 py-2 font-semibold">Tees</th>
-                      <th className="text-center px-3 py-2 font-semibold">Slope</th>
-                      <th className="text-center px-3 py-2 font-semibold">Rating</th>
-                      <th className="text-left px-3 py-2 font-semibold">Conditions</th>
-                      <th className="text-center px-3 py-2 font-semibold">Field</th>
-                      <th className="text-center px-3 py-2 font-semibold">Low</th>
-                      <th className="text-center px-3 py-2 font-semibold">Mid</th>
-                      <th className="text-center px-3 py-2 font-semibold">High</th>
-                      <th className="text-center px-3 py-2 font-semibold">Gap</th>
-                      <th className="text-center px-3 py-2 font-semibold" title="Triple bogey or worse, per player per 9 holes">Blow-ups</th>
-                      <th className="text-left px-4 py-2 font-semibold">Winner</th>
+                      <th className="text-left px-3 py-2 font-semibold">Round</th>
+                      <th className="text-left px-2 py-2 font-semibold">Nine</th>
+                      <th className="text-left px-2 py-2 font-semibold">Tees</th>
+                      <th className="text-center px-2 py-2 font-semibold">Slope / Rtg</th>
+                      <th className="text-left px-2 py-2 font-semibold">Conditions</th>
+                      <th className="text-center px-2 py-2 font-semibold">Field</th>
+                      <th className="text-center px-2 py-2 font-semibold">Low</th>
+                      <th className="text-center px-2 py-2 font-semibold">Mid</th>
+                      <th className="text-center px-2 py-2 font-semibold">High</th>
+                      <th className="text-center px-2 py-2 font-semibold">Gap</th>
+                      <th className="text-center px-2 py-2 font-semibold" title="Triple bogey or worse, per player per 9 holes">Blow-ups</th>
+                      <th className="text-center px-2 py-2 font-semibold" title="Field's average net score per 9 minus what the course rating predicts">Net vs rtg</th>
+                      <th className="text-center px-2 py-2 font-semibold" title="High group minus low group, in net strokes per 9. 0 = handicaps evened it out">Net gap</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -293,7 +447,7 @@ export default function JournalClient({ events, notes, editable }: Props) {
                           className={`${stripe} ${ri === span - 1 ? "border-b border-gray-800/50" : "border-b border-gray-800/20"}`}
                         >
                           {ri === 0 && (
-                            <td rowSpan={span} className="px-4 py-2.5 align-top">
+                            <td rowSpan={span} className="px-3 py-2.5 align-top">
                               <Link
                                 href={e.season === 2 ? "/events" : `/events?season=${e.season}`}
                                 className="text-gray-200 hover:text-green-400"
@@ -304,20 +458,22 @@ export default function JournalClient({ events, notes, editable }: Props) {
                               <div className="text-[10px] text-gray-600">{shortDate(e.date)} · {st.holes} holes</div>
                             </td>
                           )}
-                          <td className="px-3 py-2.5">
+                          <td className="px-2 py-2.5">
                             {row.nine ? (
                               <span className="text-gray-200">{nineLabel(row.nine.nine)}</span>
                             ) : <span className="text-gray-700">—</span>}
                           </td>
                           {ri === 0 && (
                             <>
-                              <td rowSpan={span} className="px-3 py-2.5 align-top text-gray-300">
+                              <td rowSpan={span} className="px-2 py-2.5 align-top text-gray-300">
                                 {cs?.tees ?? "—"}
                                 {st.yards != null && <div className="text-[10px] text-gray-600">{st.yards.toLocaleString()} yds</div>}
                               </td>
-                              <td rowSpan={span} className="px-3 py-2.5 align-top text-center font-mono text-gray-200">{cs?.slope ?? "—"}</td>
-                              <td rowSpan={span} className="px-3 py-2.5 align-top text-center font-mono text-gray-200">{cs?.rating ?? "—"}</td>
-                              <td rowSpan={span} className="px-3 py-2.5 align-top text-[11px] text-gray-400 leading-snug">
+                              <td rowSpan={span} className="px-2 py-2.5 align-top text-center font-mono">
+                                <div className="text-gray-200">{cs?.slope ?? "—"}</div>
+                                {cs?.rating != null && <div className="text-[10px] text-gray-500">{cs.rating}</div>}
+                              </td>
+                              <td rowSpan={span} className="px-2 py-2.5 align-top text-[11px] text-gray-400 leading-snug">
                                 {cs ? (
                                   <>
                                     <div>Stimp {cs.stimp ?? "—"} · {cs.wind ?? "—"}</div>
@@ -333,29 +489,29 @@ export default function JournalClient({ events, notes, editable }: Props) {
                               <GroupCell g={row.groups.low} exp={st.scratchExp9} expLabel="scr" />
                               <GroupCell g={row.groups.mid} />
                               <GroupCell g={row.groups.high} exp={st.bogeyExp9} expLabel="bgy" />
-                              <td className="px-3 py-2.5 text-center font-mono text-gray-200">
+                              <td className="px-2 py-2.5 text-center font-mono text-gray-200">
                                 {row.gap9 != null ? row.gap9.toFixed(1) : <span className="text-gray-700">—</span>}
                               </td>
-                              <td className="px-3 py-2.5 text-center font-mono text-gray-300">
+                              <td className="px-2 py-2.5 text-center font-mono text-gray-300">
                                 {row.blowups != null ? row.blowups.toFixed(1) : <span className="text-gray-700">—</span>}
                               </td>
                             </>
                           ) : (
-                            <td colSpan={6} className="px-3 py-2.5 text-center text-[11px] text-gray-600 italic">
+                            <td colSpan={6} className="px-2 py-2.5 text-center text-[11px] text-gray-600 italic">
                               No reliable hole-by-hole scores for this nine
                             </td>
                           )}
                           {ri === 0 && (
-                            <td rowSpan={span} className="px-4 py-2.5 align-top">
-                              {st.winner ? (
-                                <span className="text-xs">
-                                  <span className="font-semibold" style={{ color: PLAYER_COLORS[st.winner.playerId] ?? "#e5e7eb" }}>
-                                    {st.winner.playerId}
-                                  </span>{" "}
-                                  <span className="font-mono text-gray-500">{st.winner.score}</span>
-                                </span>
-                              ) : "—"}
-                            </td>
+                            <>
+                              <td rowSpan={span} className="px-2 py-2.5 align-top text-center font-mono text-gray-200">
+                                {st.netVsRating9 != null ? fmtOver(st.netVsRating9)
+                                  : <span className="text-gray-700" title={st.handicapsSet ? undefined : "Handicaps not set yet"}>—</span>}
+                              </td>
+                              <td rowSpan={span} className="px-2 py-2.5 align-top text-center font-mono text-gray-200">
+                                {st.netGap9 != null ? st.netGap9.toFixed(1)
+                                  : <span className="text-gray-700" title={st.handicapsSet ? undefined : "Handicaps not set yet"}>—</span>}
+                              </td>
+                            </>
                           )}
                         </tr>
                       ));

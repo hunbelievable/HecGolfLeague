@@ -62,7 +62,14 @@ function CourseStatLine({ setup, stats }: { setup: CourseSetupData | null; stats
     );
   }
   if (stats.field) parts.push(<span key="field">Field <b className="text-gray-400 font-medium">{fmtOver(stats.field.avg9)}</b>/9</span>);
-  if (stats.gap9 != null) parts.push(<span key="gap">Hi–Lo gap <b className="text-gray-400 font-medium">{stats.gap9.toFixed(1)}</b></span>);
+  if (stats.gap9 != null) {
+    parts.push(
+      <span key="gap">
+        Hi–Lo gap <b className="text-gray-400 font-medium">{stats.gap9.toFixed(1)}</b>
+        {stats.netGap9 != null && <> gross · <b className="text-gray-400 font-medium">{stats.netGap9.toFixed(1)}</b> net</>}
+      </span>
+    );
+  }
   if (!parts.length) return null;
 
   return (

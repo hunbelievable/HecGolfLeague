@@ -58,10 +58,16 @@ export interface EventCourseStats {
   field: GroupStat | null;      // whole round, per 9 holes (official scores)
   groups: Record<HcpGroupKey, GroupStat | null>;
   gap9: number | null;          // high − low, per 9 holes
+  // Net scores = gross minus that week's handicap strokes, so they measure how the
+  // field did relative to what their handicaps expect. Week 1 of a season has every
+  // index at 0, so there are no strokes yet (handicapsSet = false).
+  handicapsSet: boolean;
+  net: { field: GroupStat | null; groups: Record<HcpGroupKey, GroupStat | null> };
+  netGap9: number | null;       // high − low in net: 0 means strokes levelled the field
+  netVsRating9: number | null;  // field net per 9 minus what the rating predicts for scratch
   scratchExp9: number | null;   // (rating − par) per 9: what a scratch golfer should shoot vs par
   bogeyExp9: number | null;     // (bogey rating − par) per 9, bogey rating = rating + slope / 5.381
   blowupsPer9: number | null;   // triple bogey or worse, per player per 9 holes
-  winner: { playerId: string; score: string } | null;
 }
 
 export function parseScore(score: string): number | null {
@@ -141,8 +147,16 @@ export function computeEventStats(t: StatsInput, shots: ShotRow[]): EventCourseS
     };
   });
 
+  const netScored = t.results
+    .filter(r => r.type === "net")
+    .map(r => ({ playerId: r.playerId, handicap: r.player.handicap, over: parseScore(r.score) }))
+    .filter((x): x is { playerId: string; handicap: number; over: number } => x.over !== null);
+  const grossBy = new Map(scored.map(x => [x.playerId, x.over]));
+  const handicapsSet = netScored.some(n => (grossBy.get(n.playerId) ?? n.over) !== n.over);
+  const net = groupStats(netScored, 9 / holes);
+
   const hasRating = cs?.rating != null && cs.coursePar != null;
-  const winner = gross.find(r => r.position === 1);
+  const scratchExp9 = hasRating ? round1((cs!.rating! - cs!.coursePar!) / 2) : null;
   const blowupRates = nines.filter(n => n.blowupsPer9 != null).map(n => n.blowupsPer9!);
 
   return {
@@ -151,12 +165,15 @@ export function computeEventStats(t: StatsInput, shots: ShotRow[]): EventCourseS
     nines,
     yards,
     ...groupStats(scored, 9 / holes),
-    scratchExp9: hasRating ? round1((cs!.rating! - cs!.coursePar!) / 2) : null,
+    handicapsSet,
+    net: { field: net.field, groups: net.groups },
+    netGap9: handicapsSet ? net.gap9 : null,
+    netVsRating9: handicapsSet && net.field && scratchExp9 != null ? round1(net.field.avg9 - scratchExp9) : null,
+    scratchExp9,
     bogeyExp9: hasRating && cs!.slope != null
       ? round1((cs!.rating! + cs!.slope / 5.381 - cs!.coursePar!) / 2)
       : null,
     blowupsPer9: blowupRates.length ? round1(mean(blowupRates)) : null,
-    winner: winner ? { playerId: winner.playerId, score: winner.score } : null,
   };
 }
 
