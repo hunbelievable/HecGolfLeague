@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import teeYardage from "@/lib/teeYardage.json";
 
 // Notes are written locally only: deploys copy data/dev.db over the server's DB,
 // so anything saved on the live site would be lost on the next deploy.
@@ -39,10 +40,22 @@ export interface CourseSetupData {
   gimmies: string | null;
 }
 
+export type NineKey = "front" | "back";
+
+export interface NineStats {
+  nine: NineKey;
+  field: GroupStat | null;      // strokes over par for these 9 holes
+  groups: Record<HcpGroupKey, GroupStat | null>;
+  gap9: number | null;
+  blowupsPer9: number | null;
+}
+
 export interface EventCourseStats {
   tournamentId: number;
   holes: number;
-  field: GroupStat | null;
+  nines: NineStats[];           // the nine(s) played; S1 rounds have both
+  yards: number | null;         // full 18-hole yardage of the tees played
+  field: GroupStat | null;      // whole round, per 9 holes (official scores)
   groups: Record<HcpGroupKey, GroupStat | null>;
   gap9: number | null;          // high − low, per 9 holes
   scratchExp9: number | null;   // (rating − par) per 9: what a scratch golfer should shoot vs par
@@ -59,6 +72,14 @@ export function parseScore(score: string): number | null {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+const TEE_YARDAGE = teeYardage.courses as Record<string, { name: string; tees: Record<string, number> }>;
+
+const NINE_HOLES: Record<NineKey, number[]> = {
+  front: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+  back: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+};
 
 interface StatsInput {
   id: number;
@@ -69,47 +90,72 @@ interface StatsInput {
 
 interface ShotRow { tournamentId: number; playerId: string; holeNumber: number; par: number; shotsCount: number }
 
+function groupStats(rows: { handicap: number; over: number }[], per9: number) {
+  const stat = (xs: number[]): GroupStat | null =>
+    xs.length ? { avg9: round1(mean(xs) * per9), n: xs.length } : null;
+  const groups = Object.fromEntries(
+    HCP_GROUPS.map(g => [g.key, stat(rows.filter(r => hcpGroup(r.handicap) === g.key).map(r => r.over))])
+  ) as Record<HcpGroupKey, GroupStat | null>;
+  return {
+    field: stat(rows.map(r => r.over)),
+    groups,
+    gap9: groups.high && groups.low ? round1(groups.high.avg9 - groups.low.avg9) : null,
+  };
+}
+
 export function computeEventStats(t: StatsInput, shots: ShotRow[]): EventCourseStats {
-  const own = shots.filter(s => s.tournamentId === t.id);
-  const holes = new Set(own.map(s => s.holeNumber)).size || (t.season === 1 ? 18 : 9);
-  const per9 = 9 / holes;
+  const cs = t.courseSetup;
+  const yards = cs?.sgtCourseId != null && cs.tees
+    ? TEE_YARDAGE[String(cs.sgtCourseId)]?.tees[cs.tees] ?? null
+    : null;
 
   const gross = t.results.filter(r => r.type === "gross");
   const scored = gross
-    .map(r => ({ r, over: parseScore(r.score) }))
-    .filter((x): x is { r: (typeof gross)[number]; over: number } => x.over !== null);
+    .map(r => ({ playerId: r.playerId, handicap: r.player.handicap, over: parseScore(r.score) }))
+    .filter((x): x is { playerId: string; handicap: number; over: number } => x.over !== null);
 
-  const stat = (xs: number[]): GroupStat | null =>
-    xs.length ? { avg9: round1(mean(xs) * per9), n: xs.length } : null;
+  // Shot cards are only trusted when they add up to the official gross score
+  // (a few are bad scrapes or were edited on SGT afterwards)
+  const own = shots.filter(s => s.tournamentId === t.id);
+  const cards = new Map<string, ShotRow[]>();
+  for (const s of own) cards.set(s.playerId, [...(cards.get(s.playerId) ?? []), s]);
+  const validCards = scored
+    .map(p => ({ ...p, card: cards.get(p.playerId) ?? [] }))
+    .filter(p => p.card.length && sum(p.card.map(h => h.shotsCount - h.par)) === p.over);
 
-  const groups = Object.fromEntries(
-    HCP_GROUPS.map(g => [
-      g.key,
-      stat(scored.filter(x => hcpGroup(x.r.player.handicap) === g.key).map(x => x.over)),
-    ])
-  ) as Record<HcpGroupKey, GroupStat | null>;
+  const playedHoles = new Set(own.map(s => s.holeNumber));
+  const holes = playedHoles.size || (t.season === 1 ? 18 : 9);
+  const ninesPlayed = (Object.keys(NINE_HOLES) as NineKey[]).filter(k =>
+    playedHoles.size ? NINE_HOLES[k].some(h => playedHoles.has(h)) : holes === 18
+  );
 
-  // Blow-ups only count players with a full card
-  const byPlayer = new Map<string, ShotRow[]>();
-  for (const s of own) byPlayer.set(s.playerId, [...(byPlayer.get(s.playerId) ?? []), s]);
-  const fullCards = [...byPlayer.values()].filter(c => c.length === holes);
-  const blowups = fullCards.map(c => c.filter(s => s.shotsCount - s.par >= 3).length);
+  const nines: NineStats[] = ninesPlayed.map(nine => {
+    const rows = validCards
+      .map(p => ({ handicap: p.handicap, holes: p.card.filter(h => NINE_HOLES[nine].includes(h.holeNumber)) }))
+      .filter(p => p.holes.length === 9);
+    const blowups = rows.map(p => p.holes.filter(h => h.shotsCount - h.par >= 3).length);
+    return {
+      nine,
+      ...groupStats(rows.map(p => ({ handicap: p.handicap, over: sum(p.holes.map(h => h.shotsCount - h.par)) })), 1),
+      blowupsPer9: blowups.length ? round1(mean(blowups)) : null,
+    };
+  });
 
-  const cs = t.courseSetup;
   const hasRating = cs?.rating != null && cs.coursePar != null;
   const winner = gross.find(r => r.position === 1);
+  const blowupRates = nines.filter(n => n.blowupsPer9 != null).map(n => n.blowupsPer9!);
 
   return {
     tournamentId: t.id,
     holes,
-    field: stat(scored.map(x => x.over)),
-    groups,
-    gap9: groups.high && groups.low ? round1(groups.high.avg9 - groups.low.avg9) : null,
+    nines,
+    yards,
+    ...groupStats(scored, 9 / holes),
     scratchExp9: hasRating ? round1((cs!.rating! - cs!.coursePar!) / 2) : null,
     bogeyExp9: hasRating && cs!.slope != null
       ? round1((cs!.rating! + cs!.slope / 5.381 - cs!.coursePar!) / 2)
       : null,
-    blowupsPer9: fullCards.length ? round1(mean(blowups) * per9) : null,
+    blowupsPer9: blowupRates.length ? round1(mean(blowupRates)) : null,
     winner: winner ? { playerId: winner.playerId, score: winner.score } : null,
   };
 }

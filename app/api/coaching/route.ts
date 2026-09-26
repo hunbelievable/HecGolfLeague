@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const [grossResult, netResult, tournament, player, shotRows, lmShots] = await Promise.all([
+  const [grossResult, netResult, tournament, player, shotRows, lmShots, fieldSize] = await Promise.all([
     prisma.result.findUnique({
       where: { tournamentId_playerId_type: { tournamentId, playerId, type: "gross" } },
     }),
@@ -196,6 +196,7 @@ export async function POST(req: NextRequest) {
         offline: true, backSpin: true, vla: true, clubAoA: true, faceToPath: true,
       },
     }),
+    prisma.result.count({ where: { tournamentId, type: "gross" } }),
   ]);
 
   if (!tournament || !player) {
@@ -210,8 +211,8 @@ export async function POST(req: NextRequest) {
   const prompt = `You are a direct, analytical golf coach reviewing a round for ${playerId} (handicap ${player.handicap}).
 
 Tournament: ${tournament.name} (${tournament.week}${tournament.isMajor ? " — MAJOR" : ""})
-Gross score: ${grossResult?.score ?? "N/A"} (Position: ${grossResult?.position ?? "N/A"} of 6)
-Net score:   ${netResult?.score ?? "N/A"} (Position: ${netResult?.position ?? "N/A"} of 6)
+Gross score: ${grossResult?.score ?? "N/A"} (Position: ${grossResult?.position ?? "N/A"} of ${fieldSize})
+Net score:   ${netResult?.score ?? "N/A"} (Position: ${netResult?.position ?? "N/A"} of ${fieldSize})
 ${hasLMData ? `
 ${lmSection}
 ` : ""}
@@ -230,11 +231,23 @@ Keep it under 500 words.${!hasShotData && !hasLMData ? "\n\nNote: No shot data o
   try {
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 700,
+      // Headroom well above the ~500-word target — 700 cut reports off mid-sentence
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const report = (message.content[0] as { type: string; text: string }).text;
+    // Don't cache a cut-off report; the next request would serve it forever
+    if (message.stop_reason === "max_tokens") {
+      return NextResponse.json(
+        { error: "The report was cut off before it finished. Try generating it again." },
+        { status: 502 }
+      );
+    }
+
+    const report = message.content
+      .map(block => (block.type === "text" ? block.text : ""))
+      .join("")
+      .trim();
 
     await prisma.coachingReport.upsert({
       where:  { playerId_tournamentId: { playerId, tournamentId } },

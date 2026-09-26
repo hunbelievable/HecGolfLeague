@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { PLAYER_COLORS } from "@/lib/types";
 import { HCP_GROUPS, type JournalEvent, type GroupStat } from "@/lib/courseJournal";
-import { courseSlug, fmtOver } from "@/lib/courseFormat";
+import { courseSlug, fmtOver, nineLabel } from "@/lib/courseFormat";
 
 interface Props {
   events: JournalEvent[];
@@ -219,8 +219,8 @@ export default function JournalClient({ events, notes, editable }: Props) {
 
       {/* How to read the tables */}
       <div className="text-[11px] text-gray-500 mb-4 leading-relaxed">
-        Scores are gross strokes over par <b className="text-gray-400">per 9 holes</b>, so 18-hole Season 1 rounds
-        compare with 9-hole Season 2 rounds. Groups use each player&apos;s current index:{" "}
+        Scores are gross strokes over par <b className="text-gray-400">per 9 holes</b>. Season 1&apos;s 18-hole rounds
+        are split into front and back nines from hole-by-hole scores. Yards are the full 18 from the tees played. Groups use each player&apos;s current index:{" "}
         {HCP_GROUPS.map((g, i) => (
           <span key={g.key}>{i > 0 && ", "}{g.label} {g.range}</span>
         ))}.{" "}
@@ -261,6 +261,7 @@ export default function JournalClient({ events, notes, editable }: Props) {
                   <thead>
                     <tr className="bg-gray-900/80 text-gray-500 text-[10px] uppercase tracking-widest border-b border-gray-800">
                       <th className="text-left px-4 py-2 font-semibold">Round</th>
+                      <th className="text-left px-3 py-2 font-semibold">Nine</th>
                       <th className="text-left px-3 py-2 font-semibold">Tees</th>
                       <th className="text-center px-3 py-2 font-semibold">Slope</th>
                       <th className="text-center px-3 py-2 font-semibold">Rating</th>
@@ -278,51 +279,86 @@ export default function JournalClient({ events, notes, editable }: Props) {
                     {course.events.map((e, i) => {
                       const cs = e.courseSetup;
                       const st = e.stats;
-                      return (
-                        <tr key={e.id} className={`border-b border-gray-800/50 last:border-0 ${i % 2 === 0 ? "bg-gray-900" : "bg-gray-950/50"}`}>
-                          <td className="px-4 py-2.5">
-                            <Link
-                              href={e.season === 2 ? "/events" : `/events?season=${e.season}`}
-                              className="text-gray-200 hover:text-green-400"
-                            >
-                              S{e.season} {e.week}
-                            </Link>
-                            {e.isMajor && <span className="ml-1.5 text-[10px] text-yellow-400">★</span>}
-                            <div className="text-[10px] text-gray-600">{shortDate(e.date)} · {st.holes} holes</div>
+                      // One row per nine played. A single-nine round uses the official round
+                      // scores; 18-hole rounds split into front/back from hole-by-hole data.
+                      const rows = st.nines.length > 1
+                        ? st.nines.map(n => ({ key: n.nine, nine: n, field: n.field, groups: n.groups, gap9: n.gap9, blowups: n.blowupsPer9 }))
+                        : [{ key: "round", nine: st.nines[0] ?? null, field: st.field, groups: st.groups, gap9: st.gap9, blowups: st.blowupsPer9 }];
+                      const span = rows.length;
+                      const stripe = i % 2 === 0 ? "bg-gray-900" : "bg-gray-950/50";
+
+                      return rows.map((row, ri) => (
+                        <tr
+                          key={`${e.id}-${row.key}`}
+                          className={`${stripe} ${ri === span - 1 ? "border-b border-gray-800/50" : "border-b border-gray-800/20"}`}
+                        >
+                          {ri === 0 && (
+                            <td rowSpan={span} className="px-4 py-2.5 align-top">
+                              <Link
+                                href={e.season === 2 ? "/events" : `/events?season=${e.season}`}
+                                className="text-gray-200 hover:text-green-400"
+                              >
+                                S{e.season} {e.week}
+                              </Link>
+                              {e.isMajor && <span className="ml-1.5 text-[10px] text-yellow-400">★</span>}
+                              <div className="text-[10px] text-gray-600">{shortDate(e.date)} · {st.holes} holes</div>
+                            </td>
+                          )}
+                          <td className="px-3 py-2.5">
+                            {row.nine ? (
+                              <span className="text-gray-200">{nineLabel(row.nine.nine)}</span>
+                            ) : <span className="text-gray-700">—</span>}
                           </td>
-                          <td className="px-3 py-2.5 text-gray-300">{cs?.tees ?? "—"}</td>
-                          <td className="px-3 py-2.5 text-center font-mono text-gray-200">{cs?.slope ?? "—"}</td>
-                          <td className="px-3 py-2.5 text-center font-mono text-gray-200">{cs?.rating ?? "—"}</td>
-                          <td className="px-3 py-2.5 text-[11px] text-gray-400 leading-snug">
-                            {cs ? (
-                              <>
-                                <div>Stimp {cs.stimp ?? "—"} · {cs.wind ?? "—"}</div>
-                                <div className="text-gray-600">Fwy {cs.fairways ?? "—"} · Grn {cs.greens ?? "—"}</div>
-                              </>
-                            ) : "—"}
-                          </td>
-                          <GroupCell g={st.field} />
-                          <GroupCell g={st.groups.low} exp={st.scratchExp9} expLabel="scr" />
-                          <GroupCell g={st.groups.mid} />
-                          <GroupCell g={st.groups.high} exp={st.bogeyExp9} expLabel="bgy" />
-                          <td className="px-3 py-2.5 text-center font-mono text-gray-200">
-                            {st.gap9 != null ? st.gap9.toFixed(1) : <span className="text-gray-700">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 text-center font-mono text-gray-300">
-                            {st.blowupsPer9 != null ? st.blowupsPer9.toFixed(1) : <span className="text-gray-700">—</span>}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            {st.winner ? (
-                              <span className="text-xs">
-                                <span className="font-semibold" style={{ color: PLAYER_COLORS[st.winner.playerId] ?? "#e5e7eb" }}>
-                                  {st.winner.playerId}
-                                </span>{" "}
-                                <span className="font-mono text-gray-500">{st.winner.score}</span>
-                              </span>
-                            ) : "—"}
-                          </td>
+                          {ri === 0 && (
+                            <>
+                              <td rowSpan={span} className="px-3 py-2.5 align-top text-gray-300">
+                                {cs?.tees ?? "—"}
+                                {st.yards != null && <div className="text-[10px] text-gray-600">{st.yards.toLocaleString()} yds</div>}
+                              </td>
+                              <td rowSpan={span} className="px-3 py-2.5 align-top text-center font-mono text-gray-200">{cs?.slope ?? "—"}</td>
+                              <td rowSpan={span} className="px-3 py-2.5 align-top text-center font-mono text-gray-200">{cs?.rating ?? "—"}</td>
+                              <td rowSpan={span} className="px-3 py-2.5 align-top text-[11px] text-gray-400 leading-snug">
+                                {cs ? (
+                                  <>
+                                    <div>Stimp {cs.stimp ?? "—"} · {cs.wind ?? "—"}</div>
+                                    <div className="text-gray-600">Fwy {cs.fairways ?? "—"} · Grn {cs.greens ?? "—"}</div>
+                                  </>
+                                ) : "—"}
+                              </td>
+                            </>
+                          )}
+                          {row.field ? (
+                            <>
+                              <GroupCell g={row.field} />
+                              <GroupCell g={row.groups.low} exp={st.scratchExp9} expLabel="scr" />
+                              <GroupCell g={row.groups.mid} />
+                              <GroupCell g={row.groups.high} exp={st.bogeyExp9} expLabel="bgy" />
+                              <td className="px-3 py-2.5 text-center font-mono text-gray-200">
+                                {row.gap9 != null ? row.gap9.toFixed(1) : <span className="text-gray-700">—</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-center font-mono text-gray-300">
+                                {row.blowups != null ? row.blowups.toFixed(1) : <span className="text-gray-700">—</span>}
+                              </td>
+                            </>
+                          ) : (
+                            <td colSpan={6} className="px-3 py-2.5 text-center text-[11px] text-gray-600 italic">
+                              No reliable hole-by-hole scores for this nine
+                            </td>
+                          )}
+                          {ri === 0 && (
+                            <td rowSpan={span} className="px-4 py-2.5 align-top">
+                              {st.winner ? (
+                                <span className="text-xs">
+                                  <span className="font-semibold" style={{ color: PLAYER_COLORS[st.winner.playerId] ?? "#e5e7eb" }}>
+                                    {st.winner.playerId}
+                                  </span>{" "}
+                                  <span className="font-mono text-gray-500">{st.winner.score}</span>
+                                </span>
+                              ) : "—"}
+                            </td>
+                          )}
                         </tr>
-                      );
+                      ));
                     })}
                   </tbody>
                 </table>

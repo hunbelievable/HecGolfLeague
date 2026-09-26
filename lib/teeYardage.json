@@ -1,0 +1,102 @@
+{
+  "_about": "Total yardage per tee, from each course’s SGT scorecard image (simulatorgolftour.com/public/assets/courseImages/scorecards/scorecard_{sgtCourseId}.jpg). Keyed by SGT course id, then tee name as SGT reports it. Add a course/tee when the league first plays it.",
+  "courses": {
+    "67": {
+      "name": "Cypress Point Club",
+      "tees": {
+        "White": 6225
+      }
+    },
+    "192": {
+      "name": "Pine Valley",
+      "tees": {
+        "White": 6560
+      }
+    },
+    "224": {
+      "name": "Shinnecock Hills Golf Club",
+      "tees": {
+        "Green": 6237
+      }
+    },
+    "248": {
+      "name": "National Golf Links of America",
+      "tees": {
+        "White": 6013
+      }
+    },
+    "347": {
+      "name": "Georgia Golf Club",
+      "tees": {
+        "White": 6549
+      }
+    },
+    "573": {
+      "name": "Paynes Valley",
+      "tees": {
+        "Blue": 6211
+      }
+    },
+    "2363": {
+      "name": "Druids Glen",
+      "tees": {
+        "Green": 6054
+      }
+    },
+    "2492": {
+      "name": "Gilded Dunes",
+      "tees": {
+        "Blue": 6700,
+        "Yellow": 6260
+      }
+    },
+    "2501": {
+      "name": "Jack's Point",
+      "tees": {
+        "Blue": 6674
+      }
+    },
+    "2555": {
+      "name": "DPC Portrush",
+      "tees": {
+        "Blue": 6522
+      }
+    },
+    "2622": {
+      "name": "Kauri Cliffs",
+      "tees": {
+        "White": 6451
+      }
+    },
+    "2781": {
+      "name": "The Renaissance Club",
+      "tees": {
+        "Yellow": 6194
+      }
+    },
+    "2857": {
+      "name": "DPC County Down",
+      "tees": {
+        "Yellow": 6560
+      }
+    },
+    "3156": {
+      "name": "Royal Worlington & Newmarket GC",
+      "tees": {
+        "Blue": 6132
+      }
+    },
+    "3196": {
+      "name": "Dismal River Club-Red Course",
+      "tees": {
+        "White": 6406
+      }
+    },
+    "3285": {
+      "name": "The Wilds",
+      "tees": {
+        "Yellow": 6452
+      }
+    }
+  }
+}

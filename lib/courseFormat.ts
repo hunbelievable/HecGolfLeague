@@ -10,3 +10,7 @@ export function fmtOver(n: number | null | undefined): string {
   if (Math.abs(n) < 0.05) return "E";
   return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
 }
+
+export function nineLabel(nine: "front" | "back"): string {
+  return nine === "front" ? "Front 9" : "Back 9";
+}

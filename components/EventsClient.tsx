@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLAYER_COLORS } from "@/lib/types";
 import type { CourseSetupData, EventCourseStats } from "@/lib/courseJournal";
-import { courseSlug, fmtOver } from "@/lib/courseFormat";
+import { courseSlug, fmtOver, nineLabel } from "@/lib/courseFormat";
 
 interface Result {
   id: number;
@@ -42,7 +42,16 @@ interface Props {
 // One-line course summary under each event: setup from SGT + how the league scored
 function CourseStatLine({ setup, stats }: { setup: CourseSetupData | null; stats: EventCourseStats }) {
   const parts: React.ReactNode[] = [];
-  if (setup?.tees) parts.push(<span key="tees">{setup.tees} tees</span>);
+  const ninesLabel = stats.nines.length === 2 ? "18 holes" : stats.nines[0] ? nineLabel(stats.nines[0].nine) : null;
+  if (ninesLabel) parts.push(<span key="nine" className="text-gray-400">{ninesLabel}</span>);
+  if (setup?.tees) {
+    parts.push(
+      <span key="tees">
+        {setup.tees} tees
+        {stats.yards != null && <span className="text-gray-600"> · {stats.yards.toLocaleString()} yds</span>}
+      </span>
+    );
+  }
   if (setup?.slope != null) parts.push(<span key="slope">Slope <b className="text-gray-400 font-medium">{setup.slope}</b></span>);
   if (setup?.rating != null) {
     parts.push(
