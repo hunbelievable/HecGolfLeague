@@ -25,8 +25,8 @@ export default function StandingsClient({ data, season }: Props) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const standings = tab === "gross" ? data.gross : data.net;
-  // Derive player list from whoever has results in this season's data
-  const players = data.gross.map(s => s.playerId);
+  // Chart lines/legend follow the active tab's standings order (points descending)
+  const players = standings.map(s => s.playerId);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -206,9 +206,11 @@ export default function StandingsClient({ data, season }: Props) {
               }}
               labelStyle={{ color: "#d1d5db", fontWeight: 600, marginBottom: 4 }}
               itemStyle={{ color: "#d1d5db", padding: "1px 0" }}
+              itemSorter={item => -(Number(item.value) || 0)}
             />
             <Legend
               wrapperStyle={{ fontSize: 11, color: "#6b7280", paddingTop: 12 }}
+              itemSorter={null}
             />
             {players.map(pid => (
               <Line

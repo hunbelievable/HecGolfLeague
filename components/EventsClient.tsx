@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLAYER_COLORS } from "@/lib/types";
+import type { CourseSetupData, EventCourseStats } from "@/lib/courseJournal";
+import { courseSlug, fmtOver } from "@/lib/courseFormat";
 
 interface Result {
   id: number;
@@ -34,6 +36,45 @@ interface ScorecardData {
 interface Props {
   events: Tournament[];
   season: number;
+  courseInfo: Record<number, { courseSetup: CourseSetupData | null; stats: EventCourseStats }>;
+}
+
+// One-line course summary under each event: setup from SGT + how the league scored
+function CourseStatLine({ setup, stats }: { setup: CourseSetupData | null; stats: EventCourseStats }) {
+  const parts: React.ReactNode[] = [];
+  if (setup?.tees) parts.push(<span key="tees">{setup.tees} tees</span>);
+  if (setup?.slope != null) parts.push(<span key="slope">Slope <b className="text-gray-400 font-medium">{setup.slope}</b></span>);
+  if (setup?.rating != null) {
+    parts.push(
+      <span key="rating">
+        Rating <b className="text-gray-400 font-medium">{setup.rating}</b>
+        {setup.coursePar != null && <span className="text-gray-600"> / par {setup.coursePar}</span>}
+      </span>
+    );
+  }
+  if (stats.field) parts.push(<span key="field">Field <b className="text-gray-400 font-medium">{fmtOver(stats.field.avg9)}</b>/9</span>);
+  if (stats.gap9 != null) parts.push(<span key="gap">Hi–Lo gap <b className="text-gray-400 font-medium">{stats.gap9.toFixed(1)}</b></span>);
+  if (!parts.length) return null;
+
+  return (
+    <div className="flex items-center gap-x-2 gap-y-0.5 flex-wrap mt-1 text-[11px] text-gray-500">
+      {parts.map((p, i) => (
+        <span key={i} className="flex items-center gap-2">
+          {i > 0 && <span className="text-gray-700">·</span>}
+          {p}
+        </span>
+      ))}
+      {setup && (
+        <Link
+          href={`/journal#${courseSlug(setup.courseName)}`}
+          onClick={e => e.stopPropagation()}
+          className="text-green-500/80 hover:text-green-400 ml-1"
+        >
+          Journal →
+        </Link>
+      )}
+    </div>
+  );
 }
 
 function scoreBg(score: number | null, par: number): string {
@@ -176,7 +217,7 @@ function Scorecard({ tournamentId, type }: { tournamentId: number; type: "gross"
   );
 }
 
-export default function EventsClient({ events, season }: Props) {
+export default function EventsClient({ events, season, courseInfo }: Props) {
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [view, setView] = useState<Record<number, "leaderboard" | "scorecard">>({});
   const [tab, setTab] = useState<"gross" | "net">("gross");
@@ -296,6 +337,12 @@ export default function EventsClient({ events, season }: Props) {
 
                 <span className="text-gray-700 text-xs flex-shrink-0">{isOpen ? "▲" : "▼"}</span>
               </button>
+
+              {courseInfo[event.id] && (
+                <div className="bg-gray-900 pl-[4.75rem] pr-4 pb-3 -mt-2">
+                  <CourseStatLine setup={courseInfo[event.id].courseSetup} stats={courseInfo[event.id].stats} />
+                </div>
+              )}
 
               {/* Expanded panel */}
               {isOpen && (

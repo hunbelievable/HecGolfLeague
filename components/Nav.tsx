@@ -9,6 +9,7 @@ const links = [
   { href: "/events", label: "Events" },
   { href: "/head-to-head", label: "Head to Head" },
   { href: "/weekly-prizes", label: "Weekly Prizes" },
+  { href: "/journal", label: "Journal" },
 ];
 
 export default function Nav() {

@@ -13,7 +13,8 @@
     "scrape-prizes": "npx ts-node --project tsconfig.seed.json scripts/scrape-prizes.ts",
     "scrape-stats": "npx ts-node --project tsconfig.seed.json scripts/scrape-stats.ts",
     "discover-rounds": "npx tsx scripts/discover-gspro-rounds.ts",
-    "find-player": "npx tsx scripts/discover-gspro-rounds.ts --find-player"
+    "find-player": "npx tsx scripts/discover-gspro-rounds.ts --find-player",
+    "scrape-course": "npx ts-node --project tsconfig.seed.json scripts/scrape-course.ts"
   },
   "prisma": {
     "seed": "npx ts-node --project tsconfig.seed.json prisma/seed.ts"

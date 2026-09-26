@@ -21,6 +21,35 @@ model Tournament {
   weeklyPrize        WeeklyPrize?
   playerRoundStats   PlayerRoundStats[]
   longDrives         LongDrive[]
+  courseSetup        CourseSetup?
+}
+
+// Course + round settings for an event, from the SGT tournament page (npm run scrape-course)
+model CourseSetup {
+  id           Int     @id @default(autoincrement())
+  tournamentId Int     @unique
+  courseName   String  // SGT course name — groups events in the Course Journal
+  sgtCourseId  Int?
+  coursePar    Int?    // full 18-hole par; slope/rating are 18-hole values too
+  tees         String?
+  slope        Int?
+  rating       Float?
+  stimp        Int?
+  fairways     String?
+  greens       String?
+  pins         String?
+  weather      String?
+  wind         String?
+  gimmies      String?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+}
+
+// Free-form league notes per course, keyed by CourseSetup.courseName
+model CourseJournal {
+  courseName String   @id
+  notes      String
+  updatedAt  DateTime @updatedAt
 }
 
 model WeeklyPrize {
