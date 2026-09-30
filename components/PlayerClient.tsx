@@ -172,13 +172,15 @@ function buildPuttingSummary(shotData: ShotRow[]): PuttingSummary {
 // ── Round stats helpers ────────────────────────────────────────────────────
 
 const STAT_LABELS: { key: keyof RoundStat; label: string; fmt: (v: number) => string }[] = [
-  { key: "scoringAvg",    label: "Scoring Avg",   fmt: v => `+${v.toFixed(1)}` },
+  { key: "scoringAvg",    label: "Scoring Avg",   fmt: v => v.toFixed(0) },
   { key: "drivingDist",   label: "Drive Dist",    fmt: v => `${v.toFixed(0)} yds` },
   { key: "fir",           label: "FIR %",         fmt: v => `${v.toFixed(0)}%` },
   { key: "gir",           label: "GIR %",         fmt: v => `${v.toFixed(0)}%` },
   { key: "sandSave",      label: "Sand Save %",   fmt: v => `${v.toFixed(0)}%` },
   { key: "scrambling",    label: "Scrambling %",  fmt: v => `${v.toFixed(0)}%` },
   { key: "girProximity",  label: "GIR Prox",      fmt: v => `${v.toFixed(1)} ft` },
+  { key: "puttsPerRound", label: "Putts",         fmt: v => v.toFixed(0) },
+  { key: "puttsPerGir",   label: "Putts/GIR",     fmt: v => v.toFixed(2) },
 ];
 
 export default function PlayerClient({ player, shotData, roundStats }: Props) {
@@ -518,7 +520,7 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
         <div className="bg-gray-900 rounded-xl border border-gray-800 mb-6 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-800">
             <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Round Stats</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Per-round statistics from SGT portal</p>
+            <p className="text-xs text-gray-600 mt-0.5">Per-round statistics from SGT portal · Putts and Putts/GIR counted from shot cards</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-max">

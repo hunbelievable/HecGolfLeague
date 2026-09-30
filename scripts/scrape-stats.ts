@@ -5,6 +5,9 @@
  * stat API endpoint directly. Known stat names were discovered by probing
  * the VIEW ALL network requests on the STATISTICS tab.
  *
+ * Putts per round are counted from the ShotData cards instead, so run
+ * `npm run scrape-shots` first.
+ *
  * Run: npm run scrape-stats
  * Force re-scrape: npm run scrape-stats -- --force
  */
@@ -20,7 +23,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 
 const BASE_URL = "https://simulatorgolftour.com";
 
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773];
 
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
@@ -33,7 +36,9 @@ function normalizePlayer(name: string): string | null {
 }
 
 // Known stat endpoint names → PlayerRoundStats column
-// API names discovered by probing VIEW ALL network requests on STATISTICS tab
+// API names discovered by probing VIEW ALL network requests on STATISTICS tab.
+// puttsPerRound / puttsPerGIR are left out: SGT reports 0 for everyone on
+// Auto-Putt events, so both come from the shot cards (puttingFromShotData).
 const STAT_ENDPOINTS: { name: string; col: string }[] = [
   { name: "scoringAverage",  col: "scoringAvg" },
   { name: "drivingDistance", col: "drivingDist" },
@@ -41,10 +46,45 @@ const STAT_ENDPOINTS: { name: string; col: string }[] = [
   { name: "greenAccuracy",   col: "gir" },
   { name: "sandSave",        col: "sandSave" },
   { name: "scrambling",      col: "scrambling" },
-  { name: "puttsPerRound",   col: "puttsPerRound" },
-  { name: "puttsPerGIR",     col: "puttsPerGir" },
   { name: "girProx",         col: "girProximity" },
 ];
+
+// Each putt is an "AUTO-PUTT" entry on the player's ShotData card for the hole.
+// A hole is a GIR when the strokes before putting (score − putts, so penalty
+// strokes count) are at most par − 2. That's the standard definition; SGT's
+// greenAccuracy stat doesn't match the cards, so it isn't used here.
+// A player missing any hole's card gets no totals rather than an undercount.
+async function puttingFromShotData(
+  tournamentId: number,
+): Promise<Map<string, { puttsPerRound: number; puttsPerGir: number | null }>> {
+  const rows = await prisma.shotData.findMany({
+    where: { tournamentId },
+    select: { playerId: true, par: true, shotsCount: true, shots: true },
+  });
+
+  const holesByPlayer = new Map<string, { putts: number; gir: boolean }[]>();
+  for (const row of rows) {
+    const shots: string[] = JSON.parse(row.shots);
+    if (shots.length === 0) continue;
+    const putts = shots.filter(s => s === "AUTO-PUTT").length;
+    const holes = holesByPlayer.get(row.playerId) ?? [];
+    holes.push({ putts, gir: row.shotsCount - putts <= row.par - 2 });
+    holesByPlayer.set(row.playerId, holes);
+  }
+
+  const roundHoles = Math.max(0, ...[...holesByPlayer.values()].map(h => h.length));
+  const totals = new Map<string, { puttsPerRound: number; puttsPerGir: number | null }>();
+  for (const [playerId, holes] of holesByPlayer) {
+    if (holes.length !== roundHoles) continue;
+    const girHoles = holes.filter(h => h.gir);
+    const girPutts = girHoles.reduce((sum, h) => sum + h.putts, 0);
+    totals.set(playerId, {
+      puttsPerRound: holes.reduce((sum, h) => sum + h.putts, 0),
+      puttsPerGir: girHoles.length ? Math.round((girPutts / girHoles.length) * 100) / 100 : null,
+    });
+  }
+  return totals;
+}
 
 // Parse POS / PLAYER / VALUE lines returned by each stat endpoint.
 // Format (text body): each player appears as three consecutive lines:
@@ -135,6 +175,19 @@ async function scrapeStats(page: Page, tournamentId: number): Promise<number> {
       if (!playerStats.has(player)) playerStats.set(player, {});
       playerStats.get(player)![col] = value;
     }
+  }
+
+  const putting = await puttingFromShotData(tournamentId);
+  if (putting.size === 0) {
+    console.log("    putts: no shot cards yet — run npm run scrape-shots, then npm run scrape-stats -- --force");
+  } else {
+    console.log(`    putts (from shot cards): ${putting.size} players`);
+  }
+  for (const [player, p] of putting) {
+    if (!playerStats.has(player)) playerStats.set(player, {});
+    const stats = playerStats.get(player)!;
+    stats.puttsPerRound = p.puttsPerRound;
+    if (p.puttsPerGir !== null) stats.puttsPerGir = p.puttsPerGir;
   }
 
   // Upsert all player stats — explicitly null out any column not present in this run

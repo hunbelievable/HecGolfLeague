@@ -41,6 +41,7 @@ const TOURNAMENT_IDS = [
   71398, // S2 Week 2 Gilded Dunes
   72377, // S2 Week 3 Paynes Valley
   74230, // S2 Week 4 The Wilds
+  74773, // S2 Week 5 Royal Worlington & Newmarket
 ];
 
 interface HoleData {

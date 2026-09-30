@@ -136,13 +136,15 @@ interface StatDef {
 }
 
 const STAT_DEFS: StatDef[] = [
-  { key: "scoringAvg",   label: "Scoring Avg",  fmt: v => `+${v.toFixed(1)}`,     lowerBetter: true  },
+  { key: "scoringAvg",   label: "Scoring Avg",  fmt: v => v.toFixed(1),            lowerBetter: true  },
   { key: "drivingDist",  label: "Drive Dist",   fmt: v => `${v.toFixed(0)} yds`,  lowerBetter: false },
   { key: "fir",          label: "FIR %",        fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false },
   { key: "gir",          label: "GIR %",        fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false },
   { key: "sandSave",     label: "Sand Save %",  fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false },
   { key: "scrambling",   label: "Scrambling %", fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false },
   { key: "girProximity", label: "GIR Prox",     fmt: v => `${v.toFixed(1)} ft`,    lowerBetter: true  },
+  { key: "puttsPerRound", label: "Putts",       fmt: v => v.toFixed(1),            lowerBetter: true  },
+  { key: "puttsPerGir",  label: "Putts/GIR",    fmt: v => v.toFixed(2),            lowerBetter: true  },
   { key: "onePuttPct",   label: "1-Putt %",     fmt: v => `${v.toFixed(0)}%`,      lowerBetter: false, compute: onePuttPct },
 ];
 
