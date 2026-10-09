@@ -42,6 +42,7 @@ const TOURNAMENT_IDS = [
   72377, // S2 Week 3 Paynes Valley
   74230, // S2 Week 4 The Wilds
   74773, // S2 Week 5 Royal Worlington & Newmarket
+  76852, // S2 Week 6 Briggs Ranch
 ];
 
 interface HoleData {

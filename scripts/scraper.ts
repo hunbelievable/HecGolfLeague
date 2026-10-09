@@ -32,7 +32,7 @@ const HEADERS = { "User-Agent": "Mozilla/5.0" };
 // Season 2 (Fall 2026) — Tour 3337
 const TOUR_ID = 3337;
 const SEASON = 2;
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852];
 
 interface LeaderboardEntry {
   position: number;
