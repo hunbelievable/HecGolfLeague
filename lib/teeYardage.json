@@ -1,5 +1,5 @@
 {
-  "_about": "Total yardage per tee, from each course’s SGT scorecard image (simulatorgolftour.com/public/assets/courseImages/scorecards/scorecard_{sgtCourseId}.jpg). Keyed by SGT course id, then tee name as SGT reports it. Add a course/tee when the league first plays it.",
+  "_about": "Total yardage per tee, from each course’s SGT scorecard image (simulatorgolftour.com/public/assets/courseImages/scorecards/scorecard_{sgtCourseId}.jpg). Keyed by SGT course id, then tee name as SGT reports it. Add a course/tee when the league first plays it. Courses missing from SGT's library (no course id, no scorecard image) go in coursesByName instead, keyed by the course name SGT shows, with par and yardage taken from the real course's scorecard.",
   "courses": {
     "67": {
       "name": "Cypress Point Club",
@@ -96,6 +96,15 @@
       "name": "The Wilds",
       "tees": {
         "Yellow": 6452
+      }
+    }
+  },
+  "coursesByName": {
+    "Briggs Ranch Golf Club": {
+      "source": "Real-course scorecard (golfpass.com). Real White tees rate 70.5/127; SGT shows 70.1/123, so GSPro's White may differ slightly.",
+      "par": 72,
+      "tees": {
+        "White": 6217
       }
     }
   }

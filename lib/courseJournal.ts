@@ -81,6 +81,8 @@ const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
 const TEE_YARDAGE = teeYardage.courses as Record<string, { name: string; tees: Record<string, number> }>;
+// Courses SGT has no scorecard for, keyed by course name (see teeYardage.json)
+const TEE_YARDAGE_BY_NAME = teeYardage.coursesByName as Record<string, { par: number; tees: Record<string, number> }>;
 
 const NINE_HOLES: Record<NineKey, number[]> = {
   front: [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -111,9 +113,10 @@ function groupStats(rows: { handicap: number; over: number }[], per9: number) {
 
 export function computeEventStats(t: StatsInput, shots: ShotRow[]): EventCourseStats {
   const cs = t.courseSetup;
-  const yards = cs?.sgtCourseId != null && cs.tees
-    ? TEE_YARDAGE[String(cs.sgtCourseId)]?.tees[cs.tees] ?? null
-    : null;
+  const teeYards = cs?.sgtCourseId != null
+    ? TEE_YARDAGE[String(cs.sgtCourseId)]?.tees
+    : cs ? TEE_YARDAGE_BY_NAME[cs.courseName]?.tees : undefined;
+  const yards = cs?.tees ? teeYards?.[cs.tees] ?? null : null;
 
   const gross = t.results.filter(r => r.type === "gross");
   const scored = gross
