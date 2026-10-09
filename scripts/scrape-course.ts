@@ -16,6 +16,10 @@ import * as cheerio from "cheerio";
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import path from "path";
+import teeYardage from "../lib/teeYardage.json";
+
+// Courses SGT has no scorecard for (no course id) — par is entered by hand here
+const COURSES_BY_NAME = teeYardage.coursesByName as Record<string, { par: number }>;
 
 const dbPath = path.resolve(process.cwd(), "data/dev.db");
 const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
@@ -87,7 +91,9 @@ async function main() {
         console.log(`⚠️  ${t.id} ${t.name}: no settings panel found — skipped`);
         continue;
       }
-      const coursePar = s.sgtCourseId ? await fetchCoursePar(s.sgtCourseId) : null;
+      const coursePar = s.sgtCourseId
+        ? await fetchCoursePar(s.sgtCourseId)
+        : COURSES_BY_NAME[s.courseName]?.par ?? null;
       const data = { ...s, courseName: s.courseName, coursePar };
 
       await prisma.courseSetup.upsert({
