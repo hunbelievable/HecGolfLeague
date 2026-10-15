@@ -23,7 +23,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 
 const BASE_URL = "https://simulatorgolftour.com";
 
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486];
 
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
@@ -303,7 +303,8 @@ function parseLongDriveSummary(text: string): Map<number, Map<string, number>> {
     // Expect: PLAYER_NAME then DISTANCE on next line
     const player = normalizePlayer(lines[i]);
     if (player && i + 1 < lines.length) {
-      const distMatch = lines[i + 1].match(/([\d.]+)\s*YDS/i);
+      // "272.4 YDS" before Oct 2026; SGT now shows a bare "272.17"
+      const distMatch = lines[i + 1].match(/^([\d.]+)(\s*YDS)?$/i);
       if (distMatch) {
         ldByHole.get(currentHole)!.set(player, parseFloat(distMatch[1]));
         i++; // skip distance line

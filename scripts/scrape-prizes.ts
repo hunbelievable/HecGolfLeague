@@ -20,7 +20,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 tournament IDs — add each week as the season progresses
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486];
 
 // Known player IDs — used for case-insensitive name normalisation
 const KNOWN_PLAYERS = [
@@ -50,7 +50,8 @@ function parseCTPWinner(text: string): string | null {
   let best: { player: string; dist: number } | null = null;
 
   for (let i = 1; i < lines.length; i++) {
-    const distMatch = lines[i].match(/^([\d]+\.[\d]+)\s*FT$/i);
+    // Distance lines were "6.46 FT"; since Week 7 (Oct 2026) SGT shows a bare "3.12"
+    const distMatch = lines[i].match(/^([\d]+\.[\d]+)(\s*FT)?$/i);
     if (!distMatch) continue;
 
     const dist = parseFloat(distMatch[1]);

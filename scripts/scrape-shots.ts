@@ -43,7 +43,19 @@ const TOURNAMENT_IDS = [
   74230, // S2 Week 4 The Wilds
   74773, // S2 Week 5 Royal Worlington & Newmarket
   76852, // S2 Week 6 Briggs Ranch
+  77486, // S2 Week 7 Hillcrest (Major)
 ];
+
+// SGT's Oct 2026 redesign writes shots as "236 yds to rough · 174 yds left" and
+// "Auto-putt". Store them in the original "236 YDS TO ROUGH, 174 YDS TO HOLE" /
+// "AUTO-PUTT" form so every week reads the same everywhere the app parses them.
+function normalizeShot(shot: string): string {
+  if (/^auto.?putt$/i.test(shot)) return "AUTO-PUTT";
+  const m = shot.match(/^(\d+)\s+yds?\s+to\s+(\w+)\s*[·•]\s*(\d+)\s+(yds?|ft)\s+left$/i);
+  if (!m) return shot;
+  const unit = m[4].toLowerCase() === "ft" ? "FT" : "YDS";
+  return `${m[1]} YDS TO ${m[2].toUpperCase()}, ${m[3]} ${unit} TO HOLE`;
+}
 
 interface HoleData {
   holeNumber: number;
@@ -78,7 +90,7 @@ function parseShotDataFromText(text: string): HoleData[] {
       if (/\d+\s+yds?\s+to\s+\w/i.test(line) || /auto.?putt/i.test(line)) {
         // Strip leading shot index (e.g. "1 ") only when followed by another number (the distance)
         const cleaned = line.replace(/^\d+\s+(?=\d)/, "").trim();
-        if (cleaned) shots.push(cleaned);
+        if (cleaned) shots.push(normalizeShot(cleaned));
       }
     }
 
@@ -157,7 +169,7 @@ async function scrapeShotData(page: Page, tournamentId: number, playerId: string
       await shotDataTab.first().click();
       // For 9-hole rounds the threshold of 54 always times out — just wait a bit.
       await page.waitForFunction(
-        () => (document.body.innerText.match(/\d+ YDS TO [A-Z]/g) || []).length >= 18,
+        () => (document.body.innerText.match(/\d+ YDS TO [A-Z]/gi) || []).length >= 18,
         { timeout: 12000 }
       ).catch(() => {});
       await page.waitForTimeout(800);
