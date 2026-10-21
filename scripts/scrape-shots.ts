@@ -44,6 +44,7 @@ const TOURNAMENT_IDS = [
   74773, // S2 Week 5 Royal Worlington & Newmarket
   76852, // S2 Week 6 Briggs Ranch
   77486, // S2 Week 7 Hillcrest (Major)
+  78349, // S2 Week 8 Landmand
 ];
 
 // SGT's Oct 2026 redesign writes shots as "236 yds to rough · 174 yds left" and
