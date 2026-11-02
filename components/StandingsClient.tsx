@@ -20,6 +20,25 @@ function positionSuffix(pos: number) {
   return "th";
 }
 
+function scoreToNumber(score: string) {
+  return score === "E" ? 0 : parseInt(score, 10) || 0;
+}
+
+function toPar(n: number, digits = 0) {
+  const s = n.toFixed(digits);
+  if (Number(s) === 0) return "E";
+  return n > 0 ? `+${s}` : s;
+}
+
+// Sum of strokes over par per player, gross and net, ranked by the active tab's per-round average
+function strokeTotals(data: StandingsData, tab: "gross" | "net") {
+  const sum = (s?: PlayerStanding) => (s ? s.results.reduce((acc, r) => acc + scoreToNumber(r.score), 0) : 0);
+  const net = new Map(data.net.map(s => [s.playerId, s]));
+  return data.gross
+    .map(g => ({ playerId: g.playerId, rounds: g.events, gross: sum(g), net: sum(net.get(g.playerId)) }))
+    .sort((a, b) => a[tab] / a.rounds - b[tab] / b.rounds);
+}
+
 export default function StandingsClient({ data, season }: Props) {
   const [tab, setTab] = useState<"gross" | "net">("gross");
   const [mounted, setMounted] = useState(false);
@@ -163,6 +182,64 @@ export default function StandingsClient({ data, season }: Props) {
                   <span className="font-bold font-mono text-white text-sm">
                     {s.totalPoints.toLocaleString()}
                   </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Season stroke totals */}
+      <div className="rounded-xl overflow-hidden mb-8 border border-gray-800 shadow-xl shadow-black/30">
+        <div className="bg-gray-900 px-4 pt-4 pb-3 border-b border-gray-700/80">
+          <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Season Strokes</h2>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Total strokes over par across every round · sorted by {tab} per round, so missed weeks don&apos;t count against anyone
+          </p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-900 border-b border-gray-700/80">
+              <th className="text-left px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest w-10">#</th>
+              <th className="text-left px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">Player</th>
+              <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">Rounds</th>
+              <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest hidden sm:table-cell">Gross</th>
+              <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">Gross / Rd</th>
+              <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest hidden sm:table-cell">Net</th>
+              <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">Net / Rd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {strokeTotals(data, tab).map((row, i) => (
+              <tr
+                key={row.playerId}
+                onClick={() => router.push(`/player/${row.playerId}`)}
+                className={`border-b border-gray-800/60 last:border-0 cursor-pointer transition-colors duration-100 group ${
+                  i % 2 === 0 ? "bg-gray-900" : "bg-gray-900/60"
+                } hover:bg-gray-800`}
+              >
+                <td className="px-4 py-3">
+                  <span className={`text-xs font-medium ${i === 0 ? "text-yellow-400 font-bold" : "text-gray-600"}`}>{i + 1}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-black/20"
+                      style={{ backgroundColor: PLAYER_COLORS[row.playerId] ?? "#888" }}
+                    />
+                    <span className="font-semibold text-white text-sm group-hover:text-green-400 transition-colors">
+                      {row.playerId}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-center text-gray-500 text-xs">{row.rounds}</td>
+                <td className="px-3 py-3 text-center font-mono text-xs text-gray-400 hidden sm:table-cell">{toPar(row.gross)}</td>
+                <td className={`px-3 py-3 text-center font-mono text-xs ${tab === "gross" ? "text-white font-bold" : "text-gray-400"}`}>
+                  {toPar(row.gross / row.rounds, 1)}
+                </td>
+                <td className="px-3 py-3 text-center font-mono text-xs text-gray-400 hidden sm:table-cell">{toPar(row.net)}</td>
+                <td className={`px-3 py-3 text-center font-mono text-xs ${tab === "net" ? "text-white font-bold" : "text-gray-400"}`}>
+                  {toPar(row.net / row.rounds, 1)}
                 </td>
               </tr>
             ))}
