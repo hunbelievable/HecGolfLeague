@@ -239,7 +239,8 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
   const bestGross = grossScores.length > 0 ? `+${Math.min(...grossScores)}` : "—";
 
   // Chart data
-  const chartData = grossResults.map(r => ({
+  // grossResults is newest-first; the chart reads oldest → newest left to right
+  const chartData = [...grossResults].reverse().map(r => ({
     week: r.tournament.week,
     score: scoreToNum(r.score),
     position: r.position,

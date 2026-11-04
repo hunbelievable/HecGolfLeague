@@ -17,11 +17,11 @@ services:
 #
 #   Weekly update (after running scrapers locally):
 #        scp data/dev.db user@server:/root/HecGolfLeague/data/dev.db
-#        ssh user@server "chown 1001:1001 /root/HecGolfLeague/data/dev.db && docker compose restart hec-golf"
+#        ssh user@server "cd /root/HecGolfLeague && chown -R 1001:1001 data && docker compose restart hec-golf"
 #
 #   First-time setup on server:
 #        mkdir -p data
 #        scp data/dev.db user@server:/root/HecGolfLeague/data/dev.db
-#        chown 1001:1001 data/dev.db
+#        chown -R 1001:1001 data   # dir too: SQLite writes a journal file there
 #        echo 'ANTHROPIC_API_KEY="sk-ant-..."' > .env
 #        docker compose up -d --build

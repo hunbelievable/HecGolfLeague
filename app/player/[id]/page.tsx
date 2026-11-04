@@ -25,7 +25,7 @@ async function getPlayerData(id: string) {
     prisma.playerRoundStats.findMany({
       where: { playerId: id },
       include: { tournament: { select: { id: true, name: true, week: true, season: true } } },
-      orderBy: { tournament: { date: "asc" } },
+      orderBy: { tournament: { date: "desc" } },
     }),
   ]);
 
