@@ -11,6 +11,8 @@ interface WeekRow {
   date: string;
   isMajor: boolean;
   skinsWinner: string | null;
+  skinsPush: boolean;
+  skinsCarryIn: number;
   ctpWinner: string | null;
 }
 
@@ -202,7 +204,23 @@ function WeeklyPrizesContent() {
                     <PlayerBadge playerId={w.ctpWinner} />
                   </td>
                   <td className="text-center px-4 py-3">
-                    <PlayerBadge playerId={w.skinsWinner} />
+                    {w.skinsPush ? (
+                      <span
+                        className="inline-block px-2 py-0.5 rounded text-xs font-semibold text-gray-300 border border-gray-600 border-dashed"
+                        title="Tie for most skins — carries over to next week"
+                      >
+                        Push →
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5">
+                        <PlayerBadge playerId={w.skinsWinner} />
+                        {w.skinsCarryIn > 0 && (
+                          <span className="text-xs font-bold text-purple-400" title="Includes carried-over skins">
+                            ×{w.skinsCarryIn + 1}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

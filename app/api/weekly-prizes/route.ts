@@ -17,30 +17,39 @@ export async function GET(request: Request) {
 
   const prizeMap = new Map(prizes.map((p) => [p.tournamentId, p]));
 
+  // skinsWinner "PUSH" = tie for most skins; that week's skins prize carries
+  // over, so the next outright winner also collects every pushed week before it.
+  let carry = 0;
   const weeks = tournaments.map((t) => {
     const p = prizeMap.get(t.id);
+    const raw = p?.skinsWinner ?? null;
+    const skinsPush = raw === "PUSH";
+    const skinsWinner = skinsPush ? null : raw;
+    let skinsCarryIn = 0;
+    if (skinsPush) carry++;
+    else if (skinsWinner) { skinsCarryIn = carry; carry = 0; }
     return {
       tournamentId: t.id,
       week: t.week,
       name: t.name,
       date: t.date,
       isMajor: t.isMajor,
-      skinsWinner: p?.skinsWinner ?? null,
+      skinsWinner,
+      skinsPush,
+      skinsCarryIn,
       ctpWinner: p?.ctpWinner ?? null,
     };
   });
 
   // Build totals per player (CTP + Skins only)
   const totals: Record<string, { skins: number; ctp: number }> = {};
+  const bump = (player: string, field: "skins" | "ctp", n: number) => {
+    if (!totals[player]) totals[player] = { skins: 0, ctp: 0 };
+    totals[player][field] += n;
+  };
   for (const w of weeks) {
-    for (const [field, player] of [
-      ["skins", w.skinsWinner],
-      ["ctp", w.ctpWinner],
-    ] as [string, string | null][]) {
-      if (!player) continue;
-      if (!totals[player]) totals[player] = { skins: 0, ctp: 0 };
-      totals[player][field as "skins" | "ctp"]++;
-    }
+    if (w.skinsWinner) bump(w.skinsWinner, "skins", 1 + w.skinsCarryIn);
+    if (w.ctpWinner) bump(w.ctpWinner, "ctp", 1);
   }
 
   const leaderboard = Object.entries(totals)

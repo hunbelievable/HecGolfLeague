@@ -20,13 +20,16 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 tournament IDs — add each week as the season progresses
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589];
 
 // Known player IDs — used for case-insensitive name normalisation
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
   "PikeMatrick", "FavHoliday27", "HuskerRC13", "2FlumsUp", "cburesh",
 ];
+
+// Stored in WeeklyPrize.skinsWinner when the most-skins total is tied (prize carries over)
+const SKINS_PUSH = "PUSH";
 
 function normalizePlayer(name: string): string | null {
   const lower = name.toLowerCase().trim();
@@ -92,7 +95,13 @@ function parseSkinsWinner(text: string): string | null {
   }
 
   if (Object.keys(totals).length === 0) return null;
-  return Object.entries(totals).sort((a, b) => b[1] - a[1])[0][0];
+  const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  // A tie for most skins is a push — the skins prize carries over to next week
+  if (sorted.length > 1 && sorted[0][1] === sorted[1][1]) {
+    console.log(`  Skins tie (${sorted.filter(s => s[1] === sorted[0][1]).map(s => s[0]).join(", ")}) — PUSH`);
+    return SKINS_PUSH;
+  }
+  return sorted[0][0];
 }
 
 async function clickTabAndRead(page: Page, tabLabel: string): Promise<string | null> {

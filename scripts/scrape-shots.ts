@@ -46,6 +46,7 @@ const TOURNAMENT_IDS = [
   77486, // S2 Week 7 Hillcrest (Major)
   78349, // S2 Week 8 Landmand
   80238, // S2 Week 9 Deer Creek
+  80589, // S2 Week 10
 ];
 
 // SGT's Oct 2026 redesign writes shots as "236 yds to rough · 174 yds left" and
