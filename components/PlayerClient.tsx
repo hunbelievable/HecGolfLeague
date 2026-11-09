@@ -383,7 +383,7 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
       <div className="bg-gray-900 rounded-xl p-5 border border-gray-800 mb-6">
         <div className="mb-4">
           <h2 className="text-sm font-semibold text-white uppercase tracking-widest">Score Trend</h2>
-          <p className="text-xs text-gray-600 mt-0.5">Gross score over par by event</p>
+          <p className="text-xs text-gray-600 mt-0.5">Gross score over par by event{activeSeason >= 2 ? " (9 holes; dashed line is half the 18-hole handicap)" : ""}</p>
         </div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -411,10 +411,11 @@ export default function PlayerClient({ player, shotData, roundStats }: Props) {
               formatter={(v: unknown) => [`+${v}`, "Score"]}
             />
             <ReferenceLine
-              y={player.handicap}
+              // Handicap is an 18-hole index; Season 2+ rounds are 9 holes, so compare against half of it
+              y={activeSeason >= 2 ? player.handicap / 2 : player.handicap}
               stroke="#374151"
               strokeDasharray="4 4"
-              label={{ value: "HCP", fill: "#4b5563", fontSize: 9 }}
+              label={{ value: activeSeason >= 2 ? "HCP ÷ 2" : "HCP", fill: "#4b5563", fontSize: 9 }}
             />
             <Line
               type="monotone"
