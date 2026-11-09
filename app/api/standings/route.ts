@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { hecPoints } from "@/lib/hecPoints";
 import type { PlayerStanding, StandingsData, PointsHistory } from "@/lib/types";
 
 function scoreToNumber(score: string): number {
@@ -27,6 +28,7 @@ export async function GET() {
         top3: 0,
         top5: 0,
         totalPoints: 0,
+        totalHecPoints: 0,
         avgPosition: 0,
         bestScore: "+99",
         worstScore: "-99",
@@ -42,6 +44,8 @@ export async function GET() {
         const s = standings[r.playerId];
         s.events++;
         s.totalPoints += r.points;
+        const hec = hecPoints(r.position, t);
+        s.totalHecPoints += hec;
         if (r.position === 1) s.wins++;
         if (r.position <= 3) s.top3++;
         if (r.position <= 5) s.top5++;
@@ -59,7 +63,9 @@ export async function GET() {
           position: r.position,
           score: r.score,
           points: r.points,
+          hecPoints: hec,
           isMajor: t.isMajor,
+          isChampionship: t.isChampionship,
         });
       }
     }

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import StandingsClient from "@/components/StandingsClient";
 import prisma from "@/lib/prisma";
+import { hecPoints } from "@/lib/hecPoints";
 import type { StandingsData, PointsHistory, PlayerStanding } from "@/lib/types";
 
 function scoreToNumber(score: string): number {
@@ -29,6 +30,7 @@ async function getStandingsData(season: number): Promise<StandingsData> {
         top3: 0,
         top5: 0,
         totalPoints: 0,
+        totalHecPoints: 0,
         avgPosition: 0,
         bestScore: "+99",
         worstScore: "-99",
@@ -44,6 +46,8 @@ async function getStandingsData(season: number): Promise<StandingsData> {
         const s = standings[r.playerId];
         s.events++;
         s.totalPoints += r.points;
+        const hec = hecPoints(r.position, t);
+        s.totalHecPoints += hec;
         if (r.position === 1) s.wins++;
         if (r.position <= 3) s.top3++;
         if (r.position <= 5) s.top5++;
@@ -59,7 +63,9 @@ async function getStandingsData(season: number): Promise<StandingsData> {
           position: r.position,
           score: r.score,
           points: r.points,
+          hecPoints: hec,
           isMajor: t.isMajor,
+          isChampionship: t.isChampionship,
         });
       }
     }
@@ -77,22 +83,20 @@ async function getStandingsData(season: number): Promise<StandingsData> {
 
   const playerIds = players.map(p => p.id);
   const pointsHistory: PointsHistory[] = [];
-  const cumulative: Record<string, Record<string, number>> = { gross: {}, net: {} };
-  for (const pid of playerIds) {
-    cumulative.gross[pid] = 0;
-    cumulative.net[pid] = 0;
-  }
-
+  // Keys: gross_{pid}, net_{pid} (SGT points) and hec_gross_{pid}, hec_net_{pid} (HEC points)
+  const cumulative: Record<string, number> = {};
   for (const t of tournaments) {
     const entry: PointsHistory = { week: t.week, tournamentId: t.id, date: t.date };
     for (const pid of playerIds) {
-      const gr = t.results.find(r => r.playerId === pid && r.type === "gross");
-      if (gr) cumulative.gross[pid] += gr.points;
-      entry[`gross_${pid}`] = cumulative.gross[pid];
-
-      const nr = t.results.find(r => r.playerId === pid && r.type === "net");
-      if (nr) cumulative.net[pid] += nr.points;
-      entry[`net_${pid}`] = cumulative.net[pid];
+      for (const type of ["gross", "net"] as const) {
+        const r = t.results.find(r => r.playerId === pid && r.type === type);
+        const sgtKey = `${type}_${pid}`;
+        const hecKey = `hec_${type}_${pid}`;
+        cumulative[sgtKey] = (cumulative[sgtKey] ?? 0) + (r ? r.points : 0);
+        cumulative[hecKey] = (cumulative[hecKey] ?? 0) + (r ? hecPoints(r.position, t) : 0);
+        entry[sgtKey] = cumulative[sgtKey];
+        entry[hecKey] = cumulative[hecKey];
+      }
     }
     pointsHistory.push(entry);
   }

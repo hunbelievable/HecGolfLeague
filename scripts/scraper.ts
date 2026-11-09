@@ -102,18 +102,21 @@ async function ensureTournament(tournamentId: number, cookie: string): Promise<v
 
   const $ = cheerio.load(await getText(`${BASE_URL}/tournament/${tournamentId}`, cookie));
   const header = $(".event-image").first();
-  // Majors are titled "Week 7 - MAJOR"; store "Week 7" and flag isMajor instead
+  // Majors are titled "Week 7 - MAJOR"; store "Week 7" and flag isMajor instead.
+  // A title mentioning CHAMPIONSHIP is flagged as the Tour Championship (HEC 3x points);
+  // check the title when it appears, since SGT's format for it hasn't been seen yet.
   const title = header.find("h1").first().text().trim();
   const isMajor = /\s*-\s*MAJOR$/i.test(title);
-  const week = title.replace(/\s*-\s*MAJOR$/i, "");
+  const isChampionship = /CHAMPIONSHIP/i.test(title);
+  const week = title.replace(/\s*-\s*(MAJOR|[^-]*CHAMPIONSHIP)$/i, "");
   const [name, range] = header.find(".text-nowrap").map((_, el) => $(el).text().trim()).get();
   const date = range ? parseEndDate(range) : null;
   if (!week || !name || !date) {
     throw new Error(`Couldn't read week/course/date from /tournament/${tournamentId} (got "${week}", "${name}", "${range}")`);
   }
 
-  await prisma.tournament.create({ data: { id: tournamentId, name, week, date, isMajor, season: SEASON } });
-  console.log(`  New event: ${week}${isMajor ? " (Major)" : ""} — ${name}, ${date}`);
+  await prisma.tournament.create({ data: { id: tournamentId, name, week, date, isMajor, isChampionship, season: SEASON } });
+  console.log(`  New event: ${week}${isMajor ? " (Major)" : ""}${isChampionship ? " (Tour Championship)" : ""} — ${name}, ${date}`);
 }
 
 async function main() {

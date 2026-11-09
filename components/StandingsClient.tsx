@@ -39,11 +39,29 @@ function strokeTotals(data: StandingsData, tab: "gross" | "net") {
     .sort((a, b) => a[tab] / a.rounds - b[tab] / b.rounds);
 }
 
+type PointsSystem = "hec" | "sgt";
+const pts = (s: PlayerStanding, sys: PointsSystem) => (sys === "hec" ? s.totalHecPoints : s.totalPoints);
+
+// Rank by the chosen points system; also report each player's rank under the other system
+function rankStandings(list: PlayerStanding[], sys: PointsSystem) {
+  const other: PointsSystem = sys === "hec" ? "sgt" : "hec";
+  const otherRank = new Map(
+    [...list].sort((a, b) => pts(b, other) - pts(a, other)).map((s, i) => [s.playerId, i + 1]),
+  );
+  return [...list]
+    .sort((a, b) => pts(b, sys) - pts(a, sys) || pts(b, other) - pts(a, other))
+    .map(s => ({ ...s, otherRank: otherRank.get(s.playerId)! }));
+}
+
 export default function StandingsClient({ data, season }: Props) {
   const [tab, setTab] = useState<"gross" | "net">("gross");
+  const [system, setSystem] = useState<PointsSystem>("hec");
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const standings = tab === "gross" ? data.gross : data.net;
+  const standings = rankStandings(tab === "gross" ? data.gross : data.net, system);
+  const multiplied = (tab === "gross" ? data.gross : data.net)
+    .flatMap(s => s.results)
+    .some(r => r.isMajor || r.isChampionship);
   // Chart lines/legend follow the active tab's standings order (points descending)
   const players = standings.map(s => s.playerId);
 
@@ -79,7 +97,8 @@ export default function StandingsClient({ data, season }: Props) {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex gap-2">
         {(["gross", "net"] as const).map(t => (
           <button
             key={t}
@@ -94,6 +113,27 @@ export default function StandingsClient({ data, season }: Props) {
           </button>
         ))}
       </div>
+        {/* Points system toggle */}
+        <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+          {([["hec", "HEC Points"], ["sgt", "SGT Points"]] as const).map(([sys, label]) => (
+            <button
+              key={sys}
+              onClick={() => setSystem(sys)}
+              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all duration-150 ${
+                system === sys ? "bg-green-600 text-white shadow" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-gray-500 -mt-2 mb-4">
+        {system === "hec"
+          ? "HEC points: regular points (500 / 300 / 190 …) × 1 for tour events, × 2 for majors, × 3 for the Tour Championship."
+          : "SGT points as awarded on Simulator Golf Tour (majors 600 for 1st, Tour Championship 2500 for 1st)."}
+        {multiplied ? "" : " No majors played yet, so both systems match."}
+      </p>
 
       {/* Standings table */}
       <div className="rounded-xl overflow-hidden mb-8 border border-gray-800 shadow-xl shadow-black/30">
@@ -126,8 +166,11 @@ export default function StandingsClient({ data, season }: Props) {
               <th className="text-center px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest hidden md:table-cell">
                 Worst
               </th>
+              <th className="text-right px-3 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest hidden sm:table-cell">
+                {system === "hec" ? "SGT" : "HEC"}
+              </th>
               <th className="text-right px-4 py-3 text-gray-500 text-xs font-semibold uppercase tracking-widest">
-                Points
+                {system === "hec" ? "HEC Pts" : "SGT Pts"}
               </th>
             </tr>
           </thead>
@@ -178,9 +221,21 @@ export default function StandingsClient({ data, season }: Props) {
                 <td className="px-3 py-3 text-center font-mono text-xs text-red-500 hidden md:table-cell">
                   {s.worstScore}
                 </td>
+                <td className="px-3 py-3 text-right font-mono text-xs text-gray-500 hidden sm:table-cell whitespace-nowrap">
+                  {pts(s, system === "hec" ? "sgt" : "hec").toLocaleString()}
+                  <span
+                    className={`ml-1.5 text-[10px] ${
+                      s.otherRank === i + 1 ? "text-gray-700" : "text-gray-500"
+                    }`}
+                    title={`Rank under ${system === "hec" ? "SGT" : "HEC"} points`}
+                  >
+                    ({s.otherRank}
+                    {positionSuffix(s.otherRank)})
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-right">
                   <span className="font-bold font-mono text-white text-sm">
-                    {s.totalPoints.toLocaleString()}
+                    {pts(s, system).toLocaleString()}
                   </span>
                 </td>
               </tr>
@@ -255,7 +310,7 @@ export default function StandingsClient({ data, season }: Props) {
               Points Progression
             </h2>
             <p className="text-xs text-gray-600 mt-0.5">
-              {tab.charAt(0).toUpperCase() + tab.slice(1)} — cumulative after each event
+              {tab.charAt(0).toUpperCase() + tab.slice(1)} · {system === "hec" ? "HEC" : "SGT"} points — cumulative after each event
             </p>
           </div>
         </div>
@@ -293,7 +348,7 @@ export default function StandingsClient({ data, season }: Props) {
               <Line
                 key={pid}
                 type="monotone"
-                dataKey={`${tab}_${pid}`}
+                dataKey={system === "hec" ? `hec_${tab}_${pid}` : `${tab}_${pid}`}
                 name={pid}
                 stroke={PLAYER_COLORS[pid] ?? "#888"}
                 strokeWidth={2}

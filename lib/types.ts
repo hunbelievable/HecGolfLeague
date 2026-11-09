@@ -22,7 +22,8 @@ export interface PlayerStanding {
   wins: number;
   top3: number;
   top5: number;
-  totalPoints: number;
+  totalPoints: number;     // SGT points
+  totalHecPoints: number;  // HEC points (1× / 2× major / 3× Tour Championship)
   avgPosition: number;
   bestScore: string;
   worstScore: string;
@@ -34,7 +35,9 @@ export interface PlayerStanding {
     position: number;
     score: string;
     points: number;
+    hecPoints: number;
     isMajor: boolean;
+    isChampionship: boolean;
   }>;
 }
 
