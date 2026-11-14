@@ -32,7 +32,7 @@ const HEADERS = { "User-Agent": "Mozilla/5.0" };
 // Season 2 (Fall 2026) — Tour 3337
 const TOUR_ID = 3337;
 const SEASON = 2;
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436];
 
 interface LeaderboardEntry {
   position: number;
@@ -73,8 +73,9 @@ async function startSession(): Promise<string> {
   const cookie = res.headers.getSetCookie()
     .map(c => c.split(";")[0])
     .find(c => c.startsWith("PHPSESSID="));
-  if (!cookie) throw new Error(`No PHPSESSID cookie from /tour/${TOUR_ID} (HTTP ${res.status})`);
-  return cookie;
+  // Since Nov 2026 SGT sets no cookie and the API answers without one; the OB check in callers still guards it.
+  if (!cookie) console.log(`  (no PHPSESSID from /tour/${TOUR_ID}, HTTP ${res.status}; continuing without a session)`);
+  return cookie ?? "";
 }
 
 async function getText(url: string, cookie: string): Promise<string> {
