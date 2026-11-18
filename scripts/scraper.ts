@@ -32,7 +32,7 @@ const HEADERS = { "User-Agent": "Mozilla/5.0" };
 // Season 2 (Fall 2026) — Tour 3337
 const TOUR_ID = 3337;
 const SEASON = 2;
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436, 84122];
 
 interface LeaderboardEntry {
   position: number;
@@ -102,7 +102,10 @@ async function ensureTournament(tournamentId: number, cookie: string): Promise<v
   if (existing) return;
 
   const $ = cheerio.load(await getText(`${BASE_URL}/tournament/${tournamentId}`, cookie));
-  const header = $(".event-image").first();
+  // Header layouts: old `.event-image` (h1 + two .text-nowrap divs: course, dates) and, since
+  // Week 12, `.sgt-hero-body` (h1.sgt-hero-title + .sgt-hero-meta spans: course, dates).
+  const hero = $(".sgt-hero-body").first();
+  const header = hero.length ? hero : $(".event-image").first();
   // Majors are titled "Week 7 - MAJOR"; store "Week 7" and flag isMajor instead.
   // A title mentioning CHAMPIONSHIP is flagged as the Tour Championship (HEC 3x points);
   // check the title when it appears, since SGT's format for it hasn't been seen yet.
@@ -110,7 +113,9 @@ async function ensureTournament(tournamentId: number, cookie: string): Promise<v
   const isMajor = /\s*-\s*MAJOR$/i.test(title);
   const isChampionship = /CHAMPIONSHIP/i.test(title);
   const week = title.replace(/\s*-\s*(MAJOR|[^-]*CHAMPIONSHIP)$/i, "");
-  const [name, range] = header.find(".text-nowrap").map((_, el) => $(el).text().trim()).get();
+  const [name, range] = hero.length
+    ? header.find(".sgt-hero-meta span").map((_, el) => $(el).text().trim()).get()
+    : header.find(".text-nowrap").map((_, el) => $(el).text().trim()).get();
   const date = range ? parseEndDate(range) : null;
   if (!week || !name || !date) {
     throw new Error(`Couldn't read week/course/date from /tournament/${tournamentId} (got "${week}", "${name}", "${range}")`);

@@ -48,7 +48,8 @@ function parseSettings(html: string) {
     const i = tokens.indexOf(label);
     return i >= 0 && i + 1 < tokens.length ? tokens[i + 1] : null;
   };
-  const round = tokens.findIndex(t => /^ROUND \d+$/.test(t));
+  // SGT's Nov 2026 redesign renders the label as "Round 1" (was "ROUND 1").
+  const round = tokens.findIndex(t => /^ROUND \d+$/i.test(t));
   const courseName = round >= 0 ? tokens[round + 1] : null;
   const sgtCourseId = html.match(/scorecard_(\d+)\.jpg/)?.[1];
   const num = (s: string | null) => (s !== null && s !== "" && !isNaN(Number(s)) ? Number(s) : null);
@@ -73,7 +74,7 @@ async function fetchCoursePar(sgtCourseId: number): Promise<number | null> {
   const html = await getText(`${BASE_URL}/sgt-api/courses/courseDetails/${sgtCourseId}`);
   const $ = cheerio.load(html);
   const text = $.root().text().replace(/\s+/g, " ");
-  const par = text.match(/PAR (\d{2})/)?.[1];
+  const par = text.match(/PAR\s*(\d{2})/i)?.[1]; // "Par71" (label/value in adjacent divs) since the Nov 2026 redesign (was "PAR 71")
   return par ? Number(par) : null;
 }
 

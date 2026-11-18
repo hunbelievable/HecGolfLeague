@@ -20,7 +20,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 const BASE_URL = "https://simulatorgolftour.com";
 
 // Season 2 tournament IDs — add each week as the season progresses
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436, 84122];
 
 // Known player IDs — used for case-insensitive name normalisation
 const KNOWN_PLAYERS = [
@@ -67,31 +67,38 @@ function parseCTPWinner(text: string): string | null {
 }
 
 // ── Skins parsing ─────────────────────────────────────────────────────────────
-// Page text format (after clicking SKINS tab):
-//   HOLE 2
-//   SCORE 4 |2 SKINS    ← N SKINS line
-//   PIKEMATRICK          ← player name on next line
+// Page text format (after clicking SKINS tab), one block per hole that was won:
+//   Before Nov 2026:           Since Nov 2026 (W12):
+//     HOLE 2                     HOLE 10
+//     SCORE 4 |2 SKINS           HOLIDAY402
+//     PIKEMATRICK                3 NET
+//                                1 SKIN        (hole 16: "+1 CARRIED IN" then "2 SKINS")
+// The count already includes carried-in skins. Page also starts with a summary line
+// "6 WINNERS·7 SKINS AWARDED·2 UNCLAIMED" that must not be read as a hole.
 //
 // Sum skin values per player; return the player with the highest total.
 
 function parseSkinsWinner(text: string): string | null {
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  // The rendered page splits "HOLE" / "10" and "1" / "SKIN" onto separate lines; rejoin them.
+  const joined = text
+    .replace(/^HOLE[ \t]*\r?\n[ \t]*(\d+)[ \t]*$/gim, "HOLE $1")
+    .replace(/(\d+)[ \t]*\r?\n[ \t]*(SKINS?)\b/gi, "$1 $2");
+  const lines = joined.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const isHole = (l: string) => /^HOLE\s+\d+$/i.test(l);
   const totals: Record<string, number> = {};
 
   for (let i = 0; i < lines.length; i++) {
-    const skinMatch = lines[i].match(/(\d+)\s+SKINS?/i);
-    if (!skinMatch) continue;
+    if (!isHole(lines[i])) continue;
 
-    const skinCount = parseInt(skinMatch[1]);
-
-    // Player name is on one of the next few lines
-    for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
-      const player = normalizePlayer(lines[j]);
-      if (player) {
-        totals[player] = (totals[player] ?? 0) + skinCount;
-        break;
-      }
+    // Block = lines up to the next HOLE header (at most 6, so a final block can't run into the footer).
+    let player: string | null = null;
+    let skinCount: number | null = null;
+    for (let j = i + 1; j < Math.min(i + 7, lines.length) && !isHole(lines[j]); j++) {
+      player ??= normalizePlayer(lines[j]);
+      const m = lines[j].match(/(\d+)\s+SKINS?\b/i);
+      if (skinCount === null && m) skinCount = parseInt(m[1]);
     }
+    if (player && skinCount) totals[player] = (totals[player] ?? 0) + skinCount;
   }
 
   if (Object.keys(totals).length === 0) return null;

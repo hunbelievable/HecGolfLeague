@@ -23,7 +23,7 @@ const prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof Pris
 
 const BASE_URL = "https://simulatorgolftour.com";
 
-const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436];
+const TOURNAMENT_IDS = [67662, 71398, 72377, 74230, 74773, 76852, 77486, 78349, 80238, 80589, 82436, 84122];
 
 const KNOWN_PLAYERS = [
   "BDizzle", "NickP", "holiday402", "bsteffy", "BozClubBreaker", "TLindell",
@@ -275,7 +275,8 @@ function parseLongDriveSummary(text: string): Map<number, Map<string, number>> {
 
   for (let i = 0; i < lines.length; i++) {
     // "HOLE N" header
-    const holeMatch = lines[i].match(/^HOLE\s+(\d+)$/i);
+    // Since Nov 2026 the header and its subtitle share a line: "HOLE 11FIELD AVG 252.93 YDS·2 DRIVES"
+    const holeMatch = lines[i].match(/^HOLE\s+(\d+)(?:\s*FIELD AVG\b.*)?$/i);
     if (holeMatch) {
       currentHole = parseInt(holeMatch[1]);
       if (!ldByHole.has(currentHole)) ldByHole.set(currentHole, new Map());
