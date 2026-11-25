@@ -49,6 +49,7 @@ const TOURNAMENT_IDS = [
   80589, // S2 Week 10
   82436, // S2 Week 11
   84122, // S2 Week 12 DPC Scottsdale
+  85096, // S2 Week 13
 ];
 
 // SGT's Oct 2026 redesign writes shots as "236 yds to rough · 174 yds left" and

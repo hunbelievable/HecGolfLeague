@@ -7,6 +7,12 @@
         "White": 6225
       }
     },
+    "77": {
+      "name": "East Lake Golf Club",
+      "tees": {
+        "Blue": 6482
+      }
+    },
     "192": {
       "name": "Pine Valley",
       "tees": {
@@ -49,6 +55,12 @@
         "Green": 6054
       }
     },
+    "2425": {
+      "name": "The Players Club at Deer Creek (Front to Back)",
+      "tees": {
+        "Green": 6331
+      }
+    },
     "2492": {
       "name": "Gilded Dunes",
       "tees": {
@@ -66,6 +78,12 @@
       "name": "DPC Portrush",
       "tees": {
         "Blue": 6522
+      }
+    },
+    "2589": {
+      "name": "Landmand",
+      "tees": {
+        "White": 6791
       }
     },
     "2622": {
@@ -108,18 +126,6 @@
       "name": "Hillcrest Golf & Country Club",
       "tees": {
         "Blue": 6820
-      }
-    },
-    "2589": {
-      "name": "Landmand",
-      "tees": {
-        "White": 6791
-      }
-    },
-    "2425": {
-      "name": "The Players Club at Deer Creek (Front to Back)",
-      "tees": {
-        "Green": 6331
       }
     }
   },
